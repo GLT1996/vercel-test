@@ -168,27 +168,162 @@ function CollapsibleJsonView({
   );
 }
 
-function RootSearchableJsonView({ value }: { value: unknown }) {
+// 使用与 CollapsibleJsonView 相同的搜索逻辑，构建过滤后的 JSON 子树
+function buildFilteredJsonTree(source: unknown, queryRaw: string): unknown {
+  const normalizedQuery = (queryRaw ?? "").trim().toLowerCase();
+  if (!normalizedQuery) return source;
+
+  const matchesText = (text: string) => text.toLowerCase().includes(normalizedQuery);
+
+  const valueAsSearchText = (v: unknown): string => {
+    if (v === null) return "null";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") return String(v);
+    if (typeof v === "undefined") return "undefined";
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "[unserializable]";
+    }
+  };
+
+  // 是否在整棵子树中存在命中
+  const hasMatchInSubtree = (node: unknown): boolean => {
+    if (node === null || typeof node !== "object") {
+      return matchesText(valueAsSearchText(node));
+    }
+    if (Array.isArray(node)) {
+      return node.some((child) => hasMatchInSubtree(child));
+    }
+    return Object.entries(node as Record<string, unknown>).some(
+      ([k, v]) => matchesText(k) || hasMatchInSubtree(v)
+    );
+  };
+
+  const filterNode = (node: unknown, label?: string): unknown | undefined => {
+    const isObj = node !== null && typeof node === "object" && !Array.isArray(node);
+    const isArr = Array.isArray(node);
+
+    const keyHit = label !== undefined ? matchesText(label) : false;
+
+    if (!isObj && !isArr) {
+      const valueHit = matchesText(valueAsSearchText(node));
+      return keyHit || valueHit ? node : undefined;
+    }
+
+    // 容器节点：如果自身 key 命中，保留整棵子树（包括所有子节点）
+    if (keyHit) {
+      return node;
+    }
+
+    if (isArr) {
+      const arr = node as unknown[];
+      const kept: unknown[] = [];
+      for (const child of arr) {
+        // 只要子树里有命中，就保留整个元素
+        if (hasMatchInSubtree(child)) {
+          kept.push(child);
+        }
+      }
+      return kept.length > 0 ? kept : undefined;
+    }
+
+    const obj = node as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    let anyChildHit = false;
+
+    for (const [k, v] of Object.entries(obj)) {
+      // 字段 key 命中：整段字段（含其所有子节点）保留
+      if (matchesText(k)) {
+        result[k] = v;
+        anyChildHit = true;
+        continue;
+      }
+      const childFiltered = filterNode(v, undefined);
+      if (childFiltered !== undefined) {
+        result[k] = childFiltered;
+        anyChildHit = true;
+      }
+    }
+
+    return anyChildHit ? result : undefined;
+  };
+
+  const filtered = filterNode(source, undefined);
+  return filtered === undefined ? {} : filtered;
+}
+
+function RootSearchableJsonView({ value, prettyJson }: { value: unknown; prettyJson: string | null }) {
   const [query, setQuery] = useState<string>("");
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const handleCopy = async () => {
+    if (!prettyJson) return;
+
+    let textToCopy = prettyJson;
+    const trimmedQuery = query.trim();
+
+    // 有搜索内容时，优先复制过滤后的结构；没有搜索内容则复制全部
+    if (trimmedQuery) {
+      try {
+        const filteredValue = buildFilteredJsonTree(value, trimmedQuery);
+        textToCopy = JSON.stringify(filteredValue, null, 2);
+      } catch {
+        textToCopy = prettyJson;
+      }
+    }
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 忽略失败，仅不显示已复制提示
+    }
+  };
 
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="搜索 key / value（支持折叠视图过滤和高亮）"
-        />
-        {query ? (
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="搜索 key / value（支持折叠视图过滤和高亮）"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setQuery("")}
-            className="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={handleCopy}
+            disabled={!prettyJson}
+            className="shrink-0 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400"
           >
-            Clear
+            复制结果
           </button>
-        ) : null}
+          {copied && <span className="text-xs text-green-600">已复制</span>}
+        </div>
       </div>
 
       <CollapsibleJsonView value={value} query={query} />
@@ -282,6 +417,15 @@ export default function JsonFormatter() {
     }
   }, [input]);
 
+  const prettyJson = useMemo(() => {
+    if (parsedValue === undefined) return null;
+    try {
+      return JSON.stringify(parsedValue, null, 2);
+    } catch {
+      return null;
+    }
+  }, [parsedValue]);
+
   return (
     <div className="mt-10 w-full max-w-3xl">
       <h2 className="text-lg font-semibold mb-2">JSON Formatter</h2>
@@ -316,7 +460,7 @@ export default function JsonFormatter() {
       {parsedValue !== undefined ? (
         <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3">
           <div className="text-xs text-gray-500 mb-2">结构视图（可折叠）：</div>
-          <RootSearchableJsonView value={parsedValue} />
+          <RootSearchableJsonView value={parsedValue} prettyJson={prettyJson} />
         </div>
       ) : (
         <div className="mt-4 text-sm text-gray-500">无法解析为结构视图。</div>

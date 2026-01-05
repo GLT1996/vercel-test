@@ -13,8 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Next.js App",
-  description: "A simple app with login and user list",
+  title: "GLT App",
+  description: "A simple app",
+  icons: {
+    icon: [
+      { url: "/favicon.png?v=3", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

@@ -3,7 +3,19 @@
 import { useMemo, useState } from "react";
 
 // 递归折叠视图组件：支持对象/数组展开折叠
-function CollapsibleJsonView({ value, label, depth = 0 }: { value: unknown; label?: string; depth?: number }) {
+function CollapsibleJsonView({
+  value,
+  label,
+  depth = 0,
+  query,
+  forceShow = false,
+}: {
+  value: unknown;
+  label?: string;
+  depth?: number;
+  query?: string;
+  forceShow?: boolean;
+}) {
   const isObject = value !== null && typeof value === "object" && !Array.isArray(value);
   const isArray = Array.isArray(value);
   const isContainer = isObject || isArray;
@@ -12,19 +24,105 @@ function CollapsibleJsonView({ value, label, depth = 0 }: { value: unknown; labe
 
   const indentCls = depth > 0 ? "pl-4" : "";
 
+  const normalizedQuery = (query ?? "").trim().toLowerCase();
+
+  const matchesText = (text: string) => {
+    if (!normalizedQuery) return true;
+    return text.toLowerCase().includes(normalizedQuery);
+  };
+
+  const highlight = (text: string) => {
+    if (!normalizedQuery) return <>{text}</>;
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(normalizedQuery);
+    if (idx === -1) return <>{text}</>;
+
+    const before = text.slice(0, idx);
+    const match = text.slice(idx, idx + normalizedQuery.length);
+    const after = text.slice(idx + normalizedQuery.length);
+
+    return (
+      <>
+        {before}
+        <mark className="rounded bg-yellow-200 px-0.5 text-inherit">{match}</mark>
+        {after}
+      </>
+    );
+  };
+
+  const valueAsSearchText = (v: unknown): string => {
+    if (v === null) return "null";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") return String(v);
+    if (typeof v === "undefined") return "undefined";
+    // object / array
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "[unserializable]";
+    }
+  };
+
+  const probe = (vv: unknown): boolean => {
+    if (!normalizedQuery) return true;
+    if (vv === null || typeof vv !== "object") return matchesText(valueAsSearchText(vv));
+    if (Array.isArray(vv)) return vv.some((x) => probe(x));
+    return Object.entries(vv as Record<string, unknown>).some(([kk, xx]) => matchesText(kk) || probe(xx));
+  };
+
+  // 当前节点是否应该显示：自己或任意子节点命中 query；如果父级已命中（forceShow），则直接展示
+  const nodeMatchesInfo = (() => {
+    if (forceShow) return { show: true, keyHit: false };
+    if (!normalizedQuery) return { show: true, keyHit: false };
+
+    const keyHit = label !== undefined ? matchesText(label) : false;
+
+    if (!isContainer) {
+      const valText = valueAsSearchText(value);
+      const show = keyHit || matchesText(valText);
+      return { show, keyHit };
+    }
+
+    // 容器节点：自己命中 或 任一子节点命中
+    const show = keyHit || probe(value);
+    return { show, keyHit };
+  })();
+
+  if (!nodeMatchesInfo.show) return null;
+
   if (!isContainer) {
-    const primitive = typeof value === "string" ? `"${value}"` : String(value);
     return (
       <div className={`font-mono text-sm ${indentCls}`}>
-        {label !== undefined ? (
-          <span className="text-slate-700">{label}: </span>
-        ) : null}
-        <span className={typeof value === "string" ? "text-green-700" : "text-blue-700"}>{primitive}</span>
+        {label !== undefined ? <span className="text-slate-700">{highlight(label)}: </span> : null}
+        <span className={typeof value === "string" ? "text-green-700" : "text-blue-700"}>
+          {typeof value === "string" ? (
+            <>
+              {'"'}
+              {highlight(value)}
+              {'"'}
+            </>
+          ) : (
+            highlight(String(value))
+          )}
+        </span>
       </div>
     );
   }
 
-  const entries = isObject ? Object.entries(value as Record<string, unknown>) : (value as unknown[]).map((v, i) => [i, v]);
+  const entries = isObject
+    ? Object.entries(value as Record<string, unknown>)
+    : (value as unknown[]).map((v, i) => [i, v] as const);
+
+  // 容器命中时，为了完整展示其内容，子项不过滤；未命中时按子树匹配过滤
+  const filteredEntries = !normalizedQuery || nodeMatchesInfo.keyHit || forceShow
+    ? entries
+    : entries.filter(([k, v]) => {
+        const keyText = isObject ? String(k) : "";
+        const keyHit = isObject ? matchesText(keyText) : false;
+        if (keyHit) return true;
+        return probe(v);
+      });
+
   const bracketOpen = isObject ? "{" : "[";
   const bracketClose = isObject ? "}" : "]";
 
@@ -39,25 +137,61 @@ function CollapsibleJsonView({ value, label, depth = 0 }: { value: unknown; labe
         >
           {open ? "-" : "+"}
         </button>
-        {label !== undefined ? <span className="text-slate-700 mr-1">{label}:</span> : null}
+        {label !== undefined ? <span className="text-slate-700 mr-1">{highlight(label)}:</span> : null}
         <span className="text-slate-500">{bracketOpen}</span>
-        {!open && <span className="ml-1 text-slate-400">{isObject ? `${entries.length} keys` : `${entries.length} items`}</span>}
+        {!open && (
+          <span className="ml-1 text-slate-400">{isObject ? `${filteredEntries.length} keys` : `${filteredEntries.length} items`}</span>
+        )}
       </div>
       {open && (
         <div className="mt-1">
-          {entries.length === 0 ? (
+          {filteredEntries.length === 0 ? (
             <div className="text-slate-400">empty</div>
           ) : (
-            entries.map(([k, v], idx) => (
+            filteredEntries.map(([k, v], idx) => (
               <div key={String(k)} className="">
-                <CollapsibleJsonView value={v} label={isObject ? String(k) : undefined} depth={depth + 1} />
-                {idx < entries.length - 1 ? <span className="text-slate-500">,</span> : null}
+                <CollapsibleJsonView
+                  value={v}
+                  label={isObject ? String(k) : undefined}
+                  depth={depth + 1}
+                  query={query}
+                  forceShow={forceShow || nodeMatchesInfo.keyHit}
+                />
+                {idx < filteredEntries.length - 1 ? <span className="text-slate-500">,</span> : null}
               </div>
             ))
           )}
         </div>
       )}
       <div className="text-slate-500">{bracketClose}</div>
+    </div>
+  );
+}
+
+function RootSearchableJsonView({ value }: { value: unknown }) {
+  const [query, setQuery] = useState<string>("");
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="搜索 key / value（支持折叠视图过滤和高亮）"
+        />
+        {query ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="shrink-0 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      <CollapsibleJsonView value={value} query={query} />
     </div>
   );
 }
@@ -69,7 +203,6 @@ export default function JsonFormatter() {
   trailing: [1, 2, 3,],
   nested: { a: 1, b: 2, arr: [ { x: 1 }, { x: 2 } ] },
 }`);
-  const [output, setOutput] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   // 轻量规范化：支持常见 JSON 扩展（类似 JSON5）
@@ -115,8 +248,8 @@ export default function JsonFormatter() {
     try {
       // 先尝试标准 JSON
       const parsed = JSON.parse(input);
-      const pretty = JSON.stringify(parsed, null, 2);
-      setOutput(pretty);
+      // 格式化输出不再单独展示，仅用于结构视图
+      JSON.stringify(parsed, null, 2);
       return;
     } catch {
       // 回退到扩展输入的规范化
@@ -125,10 +258,8 @@ export default function JsonFormatter() {
     try {
       const normalized = normalizeToStrictJson(input);
       const parsed = JSON.parse(normalized);
-      const pretty = JSON.stringify(parsed, null, 2);
-      setOutput(pretty);
+      JSON.stringify(parsed, null, 2);
     } catch (e: unknown) {
-      setOutput("");
       const message = e instanceof Error ? e.message : "Invalid JSON";
       setError(message + " (提示：支持注释/单引号/尾随逗号等扩展，但复杂情况可能失败)");
     }
@@ -136,7 +267,6 @@ export default function JsonFormatter() {
 
   const clear = () => {
     setInput("");
-    setOutput("");
     setError("");
   };
 
@@ -186,18 +316,11 @@ export default function JsonFormatter() {
       {parsedValue !== undefined ? (
         <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3">
           <div className="text-xs text-gray-500 mb-2">结构视图（可折叠）：</div>
-          <CollapsibleJsonView value={parsedValue} />
+          <RootSearchableJsonView value={parsedValue} />
         </div>
       ) : (
         <div className="mt-4 text-sm text-gray-500">无法解析为结构视图。</div>
       )}
-
-      <div className="mt-4">
-        <div className="text-xs text-gray-500 mb-2">格式化输出：</div>
-        <pre className="w-full rounded border border-gray-200 bg-gray-50 p-3 font-mono text-sm whitespace-pre-wrap">
-          {output}
-        </pre>
-      </div>
     </div>
   );
 }

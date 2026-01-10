@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ExpressionCalculator from "./ExpressionCalculator";
 
 function computeLogBase(a: number, b: number) {
   // 支持自然底数：当 a 为 e 时，直接返回 ln(b)
@@ -141,6 +142,10 @@ export default function LogCalculator() {
           )}
         </div>
       </div>
+
+      <div className="my-2 w-full border-t border-black/10 dark:border-white/20" />
+
+      <ExpressionCalculator />
     </div>
   );
 }

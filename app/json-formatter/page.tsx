@@ -1,5 +1,6 @@
 import JsonFormatter from "../components/JsonFormatter";
 import JsonStringEscape from "../components/JsonStringEscape";
+import JsonToExcel from "@/app/components/JsonToExcel";
 
 export default function JsonFormatterPage() {
   return (
@@ -8,6 +9,7 @@ export default function JsonFormatterPage() {
         <div className="grid w-full grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
           <JsonFormatter />
           <JsonStringEscape />
+          <JsonToExcel/>
         </div>
       </main>
     </div>

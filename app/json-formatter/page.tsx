@@ -1,6 +1,7 @@
 import JsonFormatter from "../components/JsonFormatter";
 import JsonStringEscape from "../components/JsonStringEscape";
 import JsonToExcel from "@/app/components/JsonToExcel";
+import ExcelToJson from "@/app/components/ExcelToJson";
 
 export default function JsonFormatterPage() {
   return (
@@ -10,6 +11,7 @@ export default function JsonFormatterPage() {
           <JsonFormatter />
           <JsonStringEscape />
           <JsonToExcel/>
+          <ExcelToJson/>
         </div>
       </main>
     </div>

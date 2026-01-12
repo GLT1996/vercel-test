@@ -101,7 +101,7 @@ export default function JsonStringEscape() {
   };
 
   return (
-    <div className="w-full max-w-4xl space-y-4">
+    <div className="w-full max-w-4xl space-y-4 mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">JSON String 转义 / 去转义</h1>

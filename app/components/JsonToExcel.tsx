@@ -77,7 +77,7 @@ export default function JsonToExcel() {
   };
 
   return (
-    <div className="w-full max-w-3xl space-y-4">
+    <div className="w-full max-w-3xl space-y-4 mx-auto">
       <div>
         <h2 className="text-xl font-semibold">JSON to Excel Converter</h2>
         <p className="text-sm text-gray-500">

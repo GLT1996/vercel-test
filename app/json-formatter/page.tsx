@@ -13,10 +13,10 @@ export default function JsonFormatterPage() {
 
   return (
     <div className="flex min-h-screen w-full justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="w-full max-w-4xl px-4 py-10 md:px-8 lg:px-16">
-        <div className="mb-12 p-4 rounded-lg border bg-card text-card-foreground">
-          <h2 className="text-lg font-semibold mb-4">快速导航</h2>
-          <ul className="flex flex-wrap gap-x-6 gap-y-2">
+      <main className="w-full max-w-7xl px-4 py-10 md:px-8 lg:px-16">
+        <div className="mb-6 p-2 rounded-lg border bg-card text-card-foreground max-w-2xl mx-auto">
+          <h2 className="text-lg font-semibold mb-4 text-center">快速导航</h2>
+          <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2">
             {navLinks.map(link => (
               <li key={link.id}>
                 <a href={`#${link.id}`} className="text-blue-600 hover:underline dark:text-blue-400">

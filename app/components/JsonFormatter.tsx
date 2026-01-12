@@ -427,7 +427,7 @@ export default function JsonFormatter() {
   }, [parsedValue]);
 
   return (
-    <div className="mt-10 w-full max-w-3xl">
+    <div className="mt-10 w-full max-w-3xl mx-auto">
       <h2 className="text-lg font-semibold mb-2">JSON Formatter</h2>
       <p className="text-sm text-gray-500 mb-3">输入 JSON 文本并点击 Format 自动格式化。支持常见扩展（注释、单引号、未加引号的键、尾随逗号）。此外，点击 +/- 可折叠对象体或数组。</p>
 

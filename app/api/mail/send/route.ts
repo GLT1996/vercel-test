@@ -77,5 +77,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: false, message: msg }, { status });
+  }finally {
+    console.log("Mail API route processed a request." + request);
   }
 }

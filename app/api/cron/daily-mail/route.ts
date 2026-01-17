@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     const text = process.env.CRON_MAIL_TEXT || 'Daily email (content TBD)';
 
     const url = absoluteUrl(request, '/api/mail/send');
-
+    console.log('daily-mail cron sending to:', to, 'via', url);
     const res = await fetch(url, {
       method: 'POST',
       headers: {

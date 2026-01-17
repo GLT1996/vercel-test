@@ -4,5 +4,7 @@ node_modules/
 
 # Env & DB
 .env
+.env.local
+.env.*.local
 prisma/dev.db-journal
 /.idea

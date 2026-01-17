@@ -11,30 +11,27 @@ function formatDate(ms: number) {
 export default function TimeConverter() {
   const [raw, setRaw] = useState<string>("");
   const [unit, setUnit] = useState<"ms" | "s">("ms");
-  const [error, setError] = useState<string>("");
 
-  const result = useMemo(() => {
+  const computed = useMemo(() => {
     if (!raw.trim()) {
-      setError("");
-      return "";
+      return { result: "", error: "" };
     }
 
     const num = Number(raw.trim());
     if (!Number.isFinite(num)) {
-      setError("请输入合法的数字");
-      return "";
+      return { result: "", error: "请输入合法的数字" };
     }
 
     const ms = unit === "ms" ? num : num * 1000;
     if (ms < 0 || !Number.isFinite(ms)) {
-      setError("时间戳超出范围");
-      return "";
+      return { result: "", error: "时间戳超出范围" };
     }
 
-    const formatted = formatDate(ms);
-    setError("");
-    return formatted;
+    return { result: formatDate(ms), error: "" };
   }, [raw, unit]);
+
+  const result = computed.result;
+  const error = computed.error;
 
   const handleCopy = async () => {
     if (!result) return;
@@ -47,7 +44,6 @@ export default function TimeConverter() {
 
   const clear = () => {
     setRaw("");
-    setError("");
   };
 
   return (
@@ -103,4 +99,3 @@ export default function TimeConverter() {
     </div>
   );
 }
-

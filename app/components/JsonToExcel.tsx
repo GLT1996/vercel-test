@@ -31,7 +31,7 @@ export default function JsonToExcel() {
     let data;
     try {
       data = JSON.parse(jsonInput);
-    } catch (e) {
+    } catch {
       setError("Invalid JSON format. Please check the input.");
       return;
     }

@@ -30,6 +30,12 @@ export default async function Home() {
           >
             对数计算器（logₐ(b)）
           </Link>
+          <Link
+              href="/send-email"
+              className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
+          >
+            发邮件工具（Gmail）
+          </Link>
         </div>
       </main>
     </div>

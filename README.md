@@ -23,6 +23,43 @@ npm run build
 npm start
 ```
 
+## 发邮件模块（Gmail）
+
+- 页面：`/send-email`（填写收件人/主题/正文，点击发送）
+- 接口：`POST /api/mail/send`
+
+### 环境变量
+
+在本地用 `.env.local`（不要提交到仓库）配置，生产环境在 Vercel 的 Environment Variables 配置。
+
+必填：
+
+```env
+GMAIL_USER="your_gmail@gmail.com"
+GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
+```
+
+可选：
+
+```env
+MAIL_FROM_NAME="My Next.js App"
+MAIL_API_KEY="change_me" # 如果设置了，就需要在请求里带 Authorization: Bearer <key>
+```
+
+> Gmail 建议开启两步验证（2FA）并创建 App Password，然后把 App Password 填到 `GMAIL_APP_PASSWORD`。
+
+### 接口请求示例
+
+```http
+POST /api/mail/send
+Content-Type: application/json
+Authorization: Bearer <MAIL_API_KEY>   # 如果你设置了 MAIL_API_KEY
+
+{ "to": "someone@example.com", "subject": "Hello", "text": "Hi" }
+```
+
+接口会做基础校验与简单限流（单实例内存级，防止误操作/滥用）。
+
 ## 简单登录示例
 
 - 路由：`/login`，展示一个“Hello”的登录界面（邮箱、密码）
@@ -31,12 +68,12 @@ npm start
 ## 部署到 Vercel
 
 1. 将项目推送到 Git（GitHub、GitLab 或 Bitbucket）。
-2. 打开 https://vercel.com/new ，选择你的仓库。
+2. 打开 https://vercel.com/new 选择你的仓库。
 3. 框架自动识别为 Next.js：
    - Build Command：`next build`
    - Output Directory：`.next`
 4. 无需额外配置即可部署。首个部署完成后，Vercel 会提供一个预览域名。
-5. 如需环境变量，在 Vercel 项目设置中添加（本项目当前不需要）。
+5. 如需环境变量，在 Vercel 项目设置中添加。
 
 ## 数据库（本地与生产）
 
@@ -80,7 +117,8 @@ npm start
 
 - `app/login/page.tsx`：登录页面（表单直连 `/api/login`）。
 - `app/api/login/route.ts`：模拟登录的 API。
-- `app/page.tsx`：首页新增了跳转登录按钮。
+- `app/send-email/page.tsx`：发邮件页面。
+- `app/api/mail/send/route.ts`：通过 Gmail SMTP 发邮件的 API。
 
 ## 常见问题
 

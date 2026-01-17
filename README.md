@@ -113,6 +113,39 @@ Authorization: Bearer <MAIL_API_KEY>   # 如果你设置了 MAIL_API_KEY
 
 注意：不要在仓库中提交 `.env` 文件；请在 Vercel 控制台设置环境变量。
 
+## 定时计划：每天 10:00 自动发送邮件（复用 /api/mail/send）
+
+项目新增了一个 cron 触发接口：
+
+- `GET /api/cron/daily-mail`
+
+它会在服务端调用现有的 `POST /api/mail/send`（复用所有校验、限流与发信逻辑）。
+
+### 环境变量
+
+新增（必填）：
+
+```env
+CRON_API_KEY="change_me_too"  # cron 触发接口鉴权：Authorization: Bearer <CRON_API_KEY>
+MAIL_API_KEY="change_me"      # 用于调用 /api/mail/send（建议必须设置）
+NEXT_PUBLIC_APP_URL="https://<your-domain>"  # cron 内部调用本服务的绝对地址
+```
+
+新增（可选，邮件内容后续你可以再改）：
+
+```env
+CRON_MAIL_TO="someone@example.com"
+CRON_MAIL_SUBJECT="Daily email"
+CRON_MAIL_TEXT="Daily email (content TBD)"
+```
+
+### 部署与触发
+
+- 如果部署在 **Vercel**：仓库根目录已添加 `vercel.json`，按 `0 10 * * *` 触发 `/api/cron/daily-mail`。
+  - 注意：Vercel Cron 的调度时间通常按 **UTC** 计算。如果你要“北京时间 10:00”，需要把 schedule 改为 `0 2 * * *`（UTC+8）。
+- 如果不是 Vercel：用任意外部 scheduler（GitHub Actions / 云调度 / 服务器 crontab）每天请求一次 `GET https://<domain>/api/cron/daily-mail` 并加上 header：
+  - `Authorization: Bearer <CRON_API_KEY>`
+
 ## 目录说明（与本次改动相关）
 
 - `app/login/page.tsx`：登录页面（表单直连 `/api/login`）。

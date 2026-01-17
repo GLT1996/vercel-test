@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       },
       body: JSON.stringify({ to, subject, text }),
     });
-
+    console.log('daily-mail cron upstream status:', res);
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {

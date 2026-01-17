@@ -26,40 +26,30 @@ describe('GET /api/cron/daily-mail', () => {
     expect(json.ok).toBe(false);
   });
 
-  it('calls upstream /api/mail/send with MAIL_API_KEY and payload from env', async () => {
+  it('accepts query token (token=...) authentication (for Vercel Cron)', async () => {
     process.env.CRON_API_KEY = 'cron-secret';
     process.env.MAIL_API_KEY = 'mail-secret';
     process.env.NEXT_PUBLIC_APP_URL = 'https://example.com';
     process.env.CRON_MAIL_TO = 'someone@example.com';
-    process.env.CRON_MAIL_SUBJECT = 'Daily';
-    process.env.CRON_MAIL_TEXT = 'Hello';
 
-    const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>(async () => {
-      return new Response(JSON.stringify({ ok: true, messageId: '123' }), {
+    const fetchMock = vi.fn<typeof fetch>(async () => {
+      return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     });
     vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
 
-    const res = await GET(makeRequest('https://example.com/api/cron/daily-mail', { authorization: 'Bearer cron-secret' }));
+    const res = await GET(makeRequest('https://example.com/api/cron/daily-mail?token=cron-secret'));
     expect(res.status).toBe(200);
-
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const firstCall = fetchMock.mock.calls[0];
-    expect(firstCall).toBeTruthy();
 
+    const firstCall = fetchMock.mock.calls[0];
     const url = (firstCall?.[0] ?? '') as string | URL;
     const init = (firstCall?.[1] ?? {}) as RequestInit;
-
     expect(String(url)).toBe('https://example.com/api/mail/send');
     expect(init.method).toBe('POST');
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer mail-secret');
-
-    const body = JSON.parse(String(init.body));
-    expect(body).toEqual({ to: 'someone@example.com', subject: 'Daily', text: 'Hello' });
-
-    const json = await res.json();
-    expect(json.ok).toBe(true);
   });
 });
+

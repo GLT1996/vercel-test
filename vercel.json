@@ -1,9 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/daily-mail",
+      "path": "/api/cron/daily-mail?token=@CRON_API_KEY",
       "schedule": "0 2 * * *"
     }
   ]
 }
-

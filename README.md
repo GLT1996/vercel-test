@@ -141,10 +141,14 @@ CRON_MAIL_TEXT="Daily email (content TBD)"
 
 ### 部署与触发
 
-- 如果部署在 **Vercel**：仓库根目录已添加 `vercel.json`，按 `0 10 * * *` 触发 `/api/cron/daily-mail`。
-  - 注意：Vercel Cron 的调度时间通常按 **UTC** 计算。如果你要“北京时间 10:00”，需要把 schedule 改为 `0 2 * * *`（UTC+8）。
-- 如果不是 Vercel：用任意外部 scheduler（GitHub Actions / 云调度 / 服务器 crontab）每天请求一次 `GET https://<domain>/api/cron/daily-mail` 并加上 header：
-  - `Authorization: Bearer <CRON_API_KEY>`
+- 如果部署在 **Vercel**：仓库根目录已添加 `vercel.json`，会按计划请求：
+  - `/api/cron/daily-mail?token=<CRON_API_KEY>`
+  - 说明：Vercel Cron 通常 **不能自定义请求 Header**，因此这里用 query string 传 token。
+  - 注意：Vercel Cron 的调度时间通常按 **UTC** 计算。如果你要“北京时间 10:00”，需要把 schedule 设为 `0 2 * * *`（UTC+8）。
+
+- 如果不是 Vercel（或你想手动触发）：可以用任意外部 scheduler / curl，通过 Header 方式鉴权：
+  - `Authorization: Bearer <CRON_API_KEY>` 或 `x-api-key: <CRON_API_KEY>`
+  - 也可以直接用 query：`/api/cron/daily-mail?token=<CRON_API_KEY>`
 
 ## 目录说明（与本次改动相关）
 

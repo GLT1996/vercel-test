@@ -2,23 +2,12 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-function getCronToken(request: Request) {
-  const url = new URL(request.url);
-  return (
-    url.searchParams.get('token') ||
-    url.searchParams.get('cronToken') ||
-    url.searchParams.get('key') ||
-    ''
-  );
-}
+
 
 function checkCronKey(request: Request) {
   const expected = process.env.CRON_API_KEY;
   if (!expected) return false; // must be configured
 
-  // 1) Query token (works with Vercel Cron which can't send custom headers)
-  const queryToken = getCronToken(request);
-  if (queryToken && queryToken === expected) return true;
 
   // 2) Header token (useful for curl / external schedulers)
   const auth = request.headers.get('authorization') || '';

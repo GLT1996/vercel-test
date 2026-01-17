@@ -30,6 +30,7 @@ function checkApiKey(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    console.log("Mail API route received a request." + request);
     if (!checkApiKey(request)) {
       return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
     }

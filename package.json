@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:studio": "prisma studio",
@@ -30,12 +29,10 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/xlsx": "^0.0.35",
-    "@vitest/coverage-v8": "^4.0.17",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "prisma": "^5.20.0",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.0.17"
+    "typescript": "^5"
   }
 }

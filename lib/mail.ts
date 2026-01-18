@@ -1,9 +1,28 @@
 import * as nodemailer from 'nodemailer';
 
+export type MailAttachment = {
+  filename?: string;
+  content?: string | Buffer;
+  path?: string;
+  contentType?: string;
+  cid?: string;
+};
+
 export type SendMailInput = {
   to: string;
   subject: string;
   text: string;
+  attachments?: MailAttachment[];
+};
+
+type NodemailerAttachments = nodemailer.SendMailOptions['attachments'];
+
+type NodemailerAttachmentItem = {
+  filename?: string;
+  content?: string | Buffer;
+  path?: string;
+  contentType?: string;
+  cid?: string;
 };
 
 function requiredEnv(name: string): string {
@@ -42,18 +61,43 @@ export function normalizeText(raw: string): string {
   return text;
 }
 
+function normalizeAttachments(raw: SendMailInput['attachments']): NodemailerAttachments | undefined {
+  if (!raw || raw.length === 0) return undefined;
+
+  const mapped: NodemailerAttachmentItem[] = raw.map((a, idx) => {
+    if (!a || typeof a !== 'object') throw new Error(`Invalid attachment at index ${idx}`);
+
+    const hasContent = typeof a.content !== 'undefined';
+    const hasPath = typeof a.path !== 'undefined';
+    if (!hasContent && !hasPath) {
+      throw new Error(`Invalid attachment at index ${idx}: content or path is required`);
+    }
+
+    if (typeof a.filename === 'string') assertNoHeaderInjection(a.filename, 'attachment filename');
+    if (typeof a.cid === 'string') assertNoHeaderInjection(a.cid, 'attachment cid');
+
+    return {
+      filename: a.filename,
+      content: a.content,
+      path: a.path,
+      contentType: a.contentType,
+      cid: a.cid,
+    };
+  });
+
+  return mapped as unknown as NodemailerAttachments;
+}
+
 export async function sendMail(input: SendMailInput) {
   const user = requiredEnv('GMAIL_USER');
   const pass = requiredEnv('GMAIL_APP_PASSWORD');
-  console.log(process.env.GMAIL_USER) ;
-  console.log(process.env.GMAIL_APP_PASSWORD?.substring(0,4))
   const fromName = process.env.MAIL_FROM_NAME?.trim() || 'My Next.js App';
 
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user, pass },
     debug: true, // 显示详细调试信息
-    logger: true // 将日志输出到控制台
+    logger: true, // 将日志输出到控制台
   });
 
   return transporter.sendMail({
@@ -61,5 +105,6 @@ export async function sendMail(input: SendMailInput) {
     to: input.to,
     subject: input.subject,
     text: input.text,
+    attachments: normalizeAttachments(input.attachments),
   });
 }

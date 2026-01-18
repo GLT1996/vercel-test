@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
+import { normalizeEmail, normalizeSubject, normalizeText, sendMail } from '@/lib/mail';
 
 export const runtime = 'nodejs';
-
-
 
 function checkCronKey(request: Request) {
   const expected = process.env.CRON_API_KEY;
   if (!expected) return false; // must be configured
-
 
   // 2) Header token (useful for curl / external schedulers)
   const auth = request.headers.get('authorization') || '';
@@ -17,65 +15,42 @@ function checkCronKey(request: Request) {
   return Boolean(token) && token === expected;
 }
 
-function absoluteUrl(request: Request, path: string) {
-  // Prefer an explicit public URL (works for server-to-server in cron).
-  const base = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (base) return new URL(path, base).toString();
-
-  // Fallback to the request's origin.
-  const origin = request.headers.get('origin');
-  if (origin) return new URL(path, origin).toString();
-
-  // last resort: infer from host
-  const host = request.headers.get('host');
-  const proto = request.headers.get('x-forwarded-proto') || 'https';
-  if (host) return `${proto}://${host}${path}`;
-
-  return path;
-}
-
 export async function GET(request: Request) {
   try {
     if (!checkCronKey(request)) {
       return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const mailKey = process.env.MAIL_API_KEY;
-    if (!mailKey) {
-      // The mail endpoint allows missing key, but cron should be explicit.
-      return NextResponse.json(
-        { ok: false, message: 'Missing environment variable: MAIL_API_KEY' },
-        { status: 500 }
-      );
-    }
+    // These come from cron env vars (content can be defined later).
+    const toRaw = process.env.CRON_MAIL_TO || '';
+    const subjectRaw = process.env.CRON_MAIL_SUBJECT || 'Daily email';
+    const textRaw = process.env.CRON_MAIL_TEXT || 'Daily email (content TBD)';
 
-    const to = process.env.CRON_MAIL_TO || '';
-    const subject = process.env.CRON_MAIL_SUBJECT || 'Daily email';
-    const text = process.env.CRON_MAIL_TEXT || 'Daily email (content TBD)';
+    // Reuse the same validation/normalization rules as the public API.
+    const to = normalizeEmail(String(toRaw));
+    const subject = normalizeSubject(String(subjectRaw));
+    const text = normalizeText(String(textRaw));
 
-    const url = absoluteUrl(request, '/api/mail/send');
-    console.log('daily-mail cron sending to:', to, 'via', url);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${mailKey}`,
-      },
-      body: JSON.stringify({ to, subject, text }),
-    });
-    console.log('daily-mail cron upstream status:', res);
-    const data = await res.json().catch(() => null);
+    console.log('daily-mail cron sending to:', to);
+    const info = await sendMail({ to, subject, text });
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { ok: false, message: 'Upstream mail endpoint failed', upstreamStatus: res.status, upstream: data },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, upstream: data });
-  } catch (err) {
+    return NextResponse.json({ ok: true, messageId: info.messageId });
+  } catch (err: unknown) {
     console.error('daily-mail cron failed:', err);
-    return NextResponse.json({ ok: false, message: 'Cron failed' }, { status: 500 });
+    const msg = err instanceof Error ? err.message : 'Cron failed';
+
+    // Keep parity with /api/mail/send error mapping.
+    const status =
+      msg.startsWith('Missing environment variable') ||
+      msg === 'Invalid recipient email' ||
+      msg === 'Subject is required' ||
+      msg.startsWith('Subject too long') ||
+      msg === 'Text is required' ||
+      msg.startsWith('Text too long') ||
+      msg.startsWith('Invalid ')
+        ? 400
+        : 500;
+
+    return NextResponse.json({ ok: false, message: status === 500 ? 'Cron failed' : msg }, { status });
   }
 }

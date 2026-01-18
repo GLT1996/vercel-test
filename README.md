@@ -139,6 +139,18 @@ CRON_MAIL_SUBJECT="Daily email"
 CRON_MAIL_TEXT="Daily email (content TBD)"
 ```
 
+新增（可选，抓取 BTC 市场数据用）：
+
+```env
+# 用于抓取 Bitcoin Open Interest (USD)。不设置也能发邮件，只是 OI 会显示 N/A 并在 warnings 里提示。
+COINGLASS_API_KEY="your_coinglass_api_key"
+```
+
+> 邮件正文会在 `CRON_MAIL_TEXT` 之后追加一个 "BTC Daily Snapshot" 区块（best-effort）：
+> - BTC 现价：使用 CoinGecko（无 key）
+> - BTC ETF 净流入/流出：使用 Farside Investors（公开页面解析，可能会偶尔变更格式）
+> - BTC Open Interest (USD)：使用 Coinglass（需要 `COINGLASS_API_KEY`）
+
 ### 部署与触发
 
 - 如果部署在 **Vercel**：仓库根目录已添加 `vercel.json`，会按计划请求：

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { normalizeEmail, normalizeSubject, normalizeText, sendMail } from '@/lib/mail';
+import { buildDailyMailText, getBtcSnapshot } from '@/lib/btcMarket';
 
 export const runtime = 'nodejs';
 
@@ -29,12 +30,16 @@ export async function GET(request: Request) {
     // Reuse the same validation/normalization rules as the public API.
     const to = normalizeEmail(String(toRaw));
     const subject = normalizeSubject(String(subjectRaw));
-    const text = normalizeText(String(textRaw));
+
+    // Append BTC snapshot (best-effort) to the base text.
+    const snapshot = await getBtcSnapshot();
+    const composedText = buildDailyMailText(String(textRaw), snapshot);
+    const text = normalizeText(composedText);
 
     console.log('daily-mail cron sending to:', to);
     const info = await sendMail({ to, subject, text });
 
-    return NextResponse.json({ ok: true, messageId: info.messageId });
+    return NextResponse.json({ ok: true, messageId: info.messageId, warnings: snapshot.warnings });
   } catch (err: unknown) {
     console.error('daily-mail cron failed:', err);
     const msg = err instanceof Error ? err.message : 'Cron failed';

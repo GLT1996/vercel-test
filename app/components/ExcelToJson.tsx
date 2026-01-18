@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export default function ExcelToJson() {
   const [jsonOutput, setJsonOutput] = useState<string>("");
@@ -21,17 +21,51 @@ export default function ExcelToJson() {
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result;
         if (!data) {
           setError("Failed to read file.");
           return;
         }
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(data as ArrayBuffer);
+
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) {
+          setError("No worksheets found in the Excel file.");
+          return;
+        }
+
+        // Convert worksheet rows to JSON.
+        // Assumes the first row is the header.
+        const headerRow = worksheet.getRow(1);
+        const headerValues = Array.isArray(headerRow.values) ? headerRow.values : [];
+        const headers = (headerValues as ExcelJS.CellValue[])
+          .slice(1)
+          .map((v: ExcelJS.CellValue) => (v == null ? "" : String(v)))
+          .map((h: string) => h.trim());
+
+        const json: Record<string, string>[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const rowValues = Array.isArray(row.values) ? row.values : [];
+          const values = (rowValues as ExcelJS.CellValue[]).slice(1);
+
+          // Skip completely empty rows
+          const hasAnyValue = values.some((v: ExcelJS.CellValue) => v != null && String(v).trim() !== "");
+          if (!hasAnyValue) return;
+
+          const obj: Record<string, string> = {};
+          for (let i = 0; i < headers.length; i++) {
+            const key = headers[i] || `col_${i + 1}`;
+            const cell = values[i];
+            obj[key] = cell == null ? "" : String(cell);
+          }
+          json.push(obj);
+        });
+
         setJsonOutput(JSON.stringify(json, null, 2));
       } catch (err) {
         const msg = err instanceof Error ? err.message : "An unknown error occurred.";

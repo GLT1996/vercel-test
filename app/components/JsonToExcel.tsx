@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export default function JsonToExcel() {
   const [jsonInput, setJsonInput] = useState<string>(
@@ -21,14 +21,14 @@ export default function JsonToExcel() {
   const [error, setError] = useState<string>("");
   const [fileName, setFileName] = useState<string>("exported_data");
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setError("");
     if (!jsonInput.trim()) {
       setError("JSON input cannot be empty.");
       return;
     }
 
-    let data;
+    let data: unknown;
     try {
       data = JSON.parse(jsonInput);
     } catch {
@@ -48,23 +48,57 @@ export default function JsonToExcel() {
       setError("The JSON array must contain objects.");
       return;
     }
-    
-    // As per requirement: "every object's variables are strings"
-    // This can be validated if needed, but for now we trust the input.
 
     try {
-      // Create a new worksheet from the JSON data
-      const worksheet = XLSX.utils.json_to_sheet(data);
+      const rows = data as Array<Record<string, unknown>>;
 
-      // Create a new workbook
-      const workbook = XLSX.utils.book_new();
+      // Use union of keys across rows to avoid dropping columns.
+      const headerSet = new Set<string>();
+      for (const r of rows) {
+        for (const k of Object.keys(r)) headerSet.add(k);
+      }
+      const headers = Array.from(headerSet);
 
-      // Append the worksheet to the workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Sheet1");
 
-      // Generate the Excel file and trigger a download
+      worksheet.addRow(headers);
+      for (const r of rows) {
+        worksheet.addRow(headers.map((h) => (r[h] == null ? "" : String(r[h]))));
+      }
+
+      // Basic formatting: freeze header row + auto width (bounded)
+      worksheet.views = [{ state: "frozen", ySplit: 1 }];
+      headers.forEach((h, idx) => {
+        const col = worksheet.getColumn(idx + 1);
+        const maxLen = Math.min(
+          50,
+          Math.max(
+            String(h).length,
+            ...worksheet
+              .getColumn(idx + 1)
+              .values.slice(2)
+              .map((v) => (v == null ? 0 : String(v).length))
+          )
+        );
+        col.width = Math.max(10, maxLen + 2);
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
       const finalFileName = fileName.trim() ? `${fileName.trim()}.xlsx` : "exported_data.xlsx";
-      XLSX.writeFile(workbook, finalFileName);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = finalFileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "An unknown error occurred during Excel generation.";
       setError(`Failed to generate Excel file: ${msg}`);

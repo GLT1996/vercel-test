@@ -91,87 +91,102 @@ export async function fetchBtcPriceUsd(): Promise<number> {
 }
 
 /**
- * Provider: Farside Investors (public) for BTC ETF flows.
- * They publish a CSV per ETF; we aggregate across a common set.
- * Note: This is a best-effort public source; format may change.
+ * Provider: Twelve Data (requires API key) for BTC ETF flows.
+ * We aggregate across a common set of US spot ETFs.
  */
 export async function fetchBtcEtfNetFlowUsd(): Promise<BtcEtfFlow> {
-  const csvUrls: string[] = [
-    'https://farside.co.uk/bitcoin-etf-flow-all-data/',
-  ];
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
 
-  // Farside doesn't provide a stable JSON API; simplest approach is to parse the HTML table.
-  // We implement a lightweight parser that looks for the latest "Total" row.
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  // List of major US spot Bitcoin ETFs.
+  const etfSymbols = ['IBIT', 'FBTC', 'BITB', 'ARKB', 'BTCO', 'EZBC', 'BRRR', 'HODL', 'GBTC'];
 
-  try {
-    const res = await fetch(csvUrls[0], { signal: controller.signal, cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${csvUrls[0]}`);
-    const html = await res.text();
+  // Try to get data for the last few days, starting from yesterday.
+  for (let i = 1; i <= 5; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
 
-    // Heuristic: find the first occurrence of 'Total' row and grab the last numeric cell.
-    // We accept $ and commas and parentheses negatives.
-    const totalRowMatch = html.match(/<tr[^>]*>\s*<t[hd][^>]*>\s*Total\s*<\/t[hd]>[\s\S]*?<\/tr>/i);
-    if (!totalRowMatch) throw new Error('Unable to locate Total row for ETF flows');
+    const results = await Promise.allSettled(
+      etfSymbols.map(async (symbol) => {
+        const url = `https://api.twelvedata.com/fund_flow?symbol=${symbol}&start_date=${dateStr}&end_date=${dateStr}&apikey=${apiKey}`;
+        const data = await fetchJson(url);
 
-    const row = totalRowMatch[0];
-
-    // Extract all table cells values from the row.
-    const cellValues = Array.from(row.matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)).map((m) =>
-      String(m[1])
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;|\s+/g, ' ')
-        .trim()
+        const fundFlows = readArray(data, 'fund_flows');
+        if (fundFlows && fundFlows.length > 0) {
+          const flowData = fundFlows[0];
+          // Ensure the data is for the requested date.
+          if (isObject(flowData) && flowData['date'] === dateStr) {
+            const netFlow = readNumber(flowData, 'net_flow');
+            if (isFiniteNumber(netFlow)) {
+              return netFlow;
+            }
+          }
+        }
+        return null; // Represents no data for this ETF on this day.
+      }),
     );
 
-    // Find the last number-like cell.
-    const numberLike = [...cellValues]
-      .reverse()
-      .find((v) => /[-(\d$][\d,.$() ]*/.test(v));
+    const flows: number[] = [];
+    let hasAnyData = false;
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        if (result.value !== null) {
+          hasAnyData = true;
+          flows.push(result.value);
+        } else {
+          // No data for this ETF, treat as zero flow.
+          flows.push(0);
+        }
+      } else {
+        // A fetch failed. We can either ignore this ETF or fail hard.
+        // For robustness, let's log and treat as zero flow for this ETF for this day.
+        console.warn(`Failed to fetch flow for an ETF on ${dateStr}:`, result.reason);
+        flows.push(0);
+      }
+    }
 
-    if (!numberLike) throw new Error('Unable to parse ETF net flow number');
-
-    // Normalize: ($1,234) => -1234 ; $1,234 => 1234. Assume USD millions? Farside uses $m.
-    // Their table typically uses $m, so we convert to USD by * 1_000_000.
-    const cleaned = numberLike.replace(/\$/g, '').replace(/,/g, '').trim();
-    const negative = /^\(.*\)$/.test(cleaned);
-    const numeric = Number(cleaned.replace(/[()]/g, ''));
-    if (!Number.isFinite(numeric)) throw new Error('ETF net flow is not a number');
-    const valueM = negative ? -numeric : numeric;
-
-    return { netFlowUsd: valueM * 1_000_000 };
-  } finally {
-    clearTimeout(t);
+    // If we found any data for any ETF on this date, we'll use it.
+    if (hasAnyData) {
+      const totalNetFlow = flows.reduce((sum, flow) => sum + flow, 0);
+      return { netFlowUsd: totalNetFlow };
+    }
+    // If no data for any ETF on this date, continue to the previous day.
   }
+
+  throw new Error('Unable to fetch BTC ETF net flow from Twelve Data for the last 5 days.');
 }
 
 /**
- * Provider: Coinglass (requires API key) for BTC futures Open Interest (USD).
- * Docs vary by plan; we call a common endpoint and parse best-effort.
+ * Provider: Twelve Data (requires API key) for BTC futures Open Interest (USD).
+ * We make a best-effort attempt to parse the 'open_interest' technical indicator.
  */
 export async function fetchBtcOpenInterestUsd(): Promise<number> {
-  const apiKey = process.env.COINGLASS_API_KEY;
-  if (!apiKey) throw new Error('Missing environment variable: COINGLASS_API_KEY');
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
 
-  const url = 'https://open-api.coinglass.com/public/v2/open_interest?symbol=BTC';
-  const data = await fetchJson(url, {
-    headers: {
-      coinglassSecret: apiKey,
-    },
-  });
+  const symbol = 'BTC/USD';
+  const interval = '1day';
+  const url = `https://api.twelvedata.com/open_interest?symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
 
-  const arr = readArray(data, 'data');
-  if (!arr || arr.length === 0) throw new Error('Unexpected Coinglass response (no data)');
+  const data = await fetchJson(url);
 
-  const first = arr[0];
-  const cand =
-    readNumber(first, 'openInterestUsd') ??
-    readNumber(first, 'openInterest') ??
-    readNumber(first, 'sumOpenInterestUsd');
+  const values = readArray(data, 'values');
+  if (!values || values.length === 0) throw new Error('Unexpected Twelve Data response for open interest (no values)');
 
-  if (!isFiniteNumber(cand)) throw new Error('Unexpected Coinglass response for open interest');
-  return cand;
+  const mostRecent = values[0];
+  const openInterestStr = isObject(mostRecent) ? (mostRecent['open_interest'] as string) : undefined;
+
+  if (typeof openInterestStr !== 'string') {
+    throw new Error('Unexpected Twelve Data response for open interest (invalid format)');
+  }
+
+  const openInterest = Number(openInterestStr);
+
+  if (!isFiniteNumber(openInterest)) throw new Error('Unexpected Twelve Data response for open interest (not a number)');
+
+  // We are assuming the open interest value from this endpoint is in USD.
+  return openInterest;
 }
 
 let cache:

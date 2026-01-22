@@ -127,7 +127,7 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const url = `https://api.twelvedata.com/etf?symbol=${symbol}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
-
+  console.log('Twelve Data ETF basic info response:', data);
   if (!isObject(data)) throw new Error('Unexpected Twelve Data response for ETF basic info');
 
   const name = typeof data.name === 'string' ? data.name : undefined;

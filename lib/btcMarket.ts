@@ -11,6 +11,7 @@ export type BtcSnapshot = {
   priceUsd?: number;
   etfFlow?: BtcEtfFlow;
   openInterestUsd?: number;
+  etfBasicInfo?: BtcEtfBasicInfo;
   /** Any provider errors (we keep sending even if something fails). */
   warnings: string[];
 };
@@ -95,66 +96,9 @@ export async function fetchBtcPriceUsd(): Promise<number> {
  * We aggregate across a common set of US spot ETFs.
  */
 export async function fetchBtcEtfNetFlowUsd(): Promise<BtcEtfFlow> {
-  const apiKey = process.env.TWELVEDATA_API_KEY;
-  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
-
-  // List of major US spot Bitcoin ETFs.
-  const etfSymbols = ['IBIT', 'FBTC', 'BITB', 'ARKB', 'BTCO', 'EZBC', 'BRRR', 'HODL', 'GBTC'];
-
-  // Try to get data for the last few days, starting from yesterday.
-  for (let i = 1; i <= 5; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
-
-    const results = await Promise.allSettled(
-      etfSymbols.map(async (symbol) => {
-        const url = `https://api.twelvedata.com/fund_flow?symbol=${symbol}&start_date=${dateStr}&end_date=${dateStr}&apikey=${apiKey}`;
-        const data = await fetchJson(url);
-
-        const fundFlows = readArray(data, 'fund_flows');
-        if (fundFlows && fundFlows.length > 0) {
-          const flowData = fundFlows[0];
-          // Ensure the data is for the requested date.
-          if (isObject(flowData) && flowData['date'] === dateStr) {
-            const netFlow = readNumber(flowData, 'net_flow');
-            if (isFiniteNumber(netFlow)) {
-              return netFlow;
-            }
-          }
-        }
-        return null; // Represents no data for this ETF on this day.
-      }),
-    );
-
-    const flows: number[] = [];
-    let hasAnyData = false;
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        if (result.value !== null) {
-          hasAnyData = true;
-          flows.push(result.value);
-        } else {
-          // No data for this ETF, treat as zero flow.
-          flows.push(0);
-        }
-      } else {
-        // A fetch failed. We can either ignore this ETF or fail hard.
-        // For robustness, let's log and treat as zero flow for this ETF for this day.
-        console.warn(`Failed to fetch flow for an ETF on ${dateStr}:`, result.reason);
-        flows.push(0);
-      }
-    }
-
-    // If we found any data for any ETF on this date, we'll use it.
-    if (hasAnyData) {
-      const totalNetFlow = flows.reduce((sum, flow) => sum + flow, 0);
-      return { netFlowUsd: totalNetFlow };
-    }
-    // If no data for any ETF on this date, continue to the previous day.
-  }
-
-  throw new Error('Unable to fetch BTC ETF net flow from Twelve Data for the last 5 days.');
+  // The Twelve Data /fund_flow endpoint appears to be deprecated as it returns a 404.
+  // A replacement data source is needed to restore this functionality.
+  throw new Error('BTC ETF flow unavailable: The Twelve Data API endpoint (/fund_flow) is no longer working.');
 }
 
 /**
@@ -162,31 +106,39 @@ export async function fetchBtcEtfNetFlowUsd(): Promise<BtcEtfFlow> {
  * We make a best-effort attempt to parse the 'open_interest' technical indicator.
  */
 export async function fetchBtcOpenInterestUsd(): Promise<number> {
+  // The Twelve Data /open_interest endpoint appears to be deprecated as it returns a 404.
+  // A replacement data source is needed to restore this functionality.
+  throw new Error('BTC open interest unavailable: The Twelve Data API endpoint (/open_interest) is no longer working.');
+}
+
+export type BtcEtfBasicInfo = {
+  name: string;
+  assetClass: string;
+  expenseRatio?: number;
+  marketCap?: number;
+  inceptionDate?: string;
+};
+
+export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const apiKey = process.env.TWELVEDATA_API_KEY;
   if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
 
-  const symbol = 'BTC/USD';
-  const interval = '1day';
-  const url = `https://api.twelvedata.com/open_interest?symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
+  const symbol = 'IBIT'; // Picking one major BTC ETF for basic info
+  const url = `https://api.twelvedata.com/etf?symbol=${symbol}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
 
-  const values = readArray(data, 'values');
-  if (!values || values.length === 0) throw new Error('Unexpected Twelve Data response for open interest (no values)');
+  if (!isObject(data)) throw new Error('Unexpected Twelve Data response for ETF basic info');
 
-  const mostRecent = values[0];
-  const openInterestStr = isObject(mostRecent) ? (mostRecent['open_interest'] as string) : undefined;
+  const name = typeof data.name === 'string' ? data.name : undefined;
+  const assetClass = typeof data.asset_class === 'string' ? data.asset_class : undefined;
+  const expenseRatio = readNumber(data, 'expense_ratio');
+  const marketCap = readNumber(data, 'market_cap');
+  const inceptionDate = typeof data.inception_date === 'string' ? data.inception_date : undefined;
 
-  if (typeof openInterestStr !== 'string') {
-    throw new Error('Unexpected Twelve Data response for open interest (invalid format)');
-  }
+  if (!name || !assetClass) throw new Error('Missing critical fields in ETF basic info response');
 
-  const openInterest = Number(openInterestStr);
-
-  if (!isFiniteNumber(openInterest)) throw new Error('Unexpected Twelve Data response for open interest (not a number)');
-
-  // We are assuming the open interest value from this endpoint is in USD.
-  return openInterest;
+  return { name, assetClass, expenseRatio, marketCap, inceptionDate };
 }
 
 let cache:
@@ -209,10 +161,11 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   const asOfIso = new Date().toISOString();
 
-  const [priceRes, etfRes, oiRes] = await Promise.allSettled([
+  const [priceRes, etfRes, oiRes, etfBasicInfoRes] = await Promise.allSettled([
     fetchBtcPriceUsd(),
     fetchBtcEtfNetFlowUsd(),
     fetchBtcOpenInterestUsd(),
+    fetchBtcEtfBasicInfo(),
   ]);
 
   const snapshot: BtcSnapshot = { asOfIso, warnings };
@@ -225,6 +178,9 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   if (oiRes.status === 'fulfilled') snapshot.openInterestUsd = oiRes.value;
   else warnings.push(`BTC open interest unavailable: ${toErrorMessage(oiRes.reason)}`);
+
+  if (etfBasicInfoRes.status === 'fulfilled') snapshot.etfBasicInfo = etfBasicInfoRes.value;
+  else warnings.push(`BTC ETF basic info unavailable: ${toErrorMessage(etfBasicInfoRes.reason)}`);
 
   cache = { atMs: now, value: snapshot };
   return snapshot;
@@ -260,6 +216,24 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
 
   if (typeof snapshot.openInterestUsd === 'number') lines.push(`BTC Open Interest (USD): ${formatUsd(snapshot.openInterestUsd)}`);
   else lines.push('BTC Open Interest (USD): N/A');
+
+  if (snapshot.etfBasicInfo) {
+    lines.push('');
+    lines.push('=== BTC ETF Basic Info (IBIT) ===');
+    lines.push(`Name: ${snapshot.etfBasicInfo.name}`);
+    lines.push(`Asset Class: ${snapshot.etfBasicInfo.assetClass}`);
+    if (typeof snapshot.etfBasicInfo.expenseRatio === 'number') {
+      lines.push(`Expense Ratio: ${snapshot.etfBasicInfo.expenseRatio}%`);
+    }
+    if (typeof snapshot.etfBasicInfo.marketCap === 'number') {
+      lines.push(`Market Cap: ${formatUsd(snapshot.etfBasicInfo.marketCap, { compact: true })}`);
+    }
+    if (snapshot.etfBasicInfo.inceptionDate) {
+      lines.push(`Inception Date: ${snapshot.etfBasicInfo.inceptionDate}`);
+    }
+  } else {
+    lines.push('', 'BTC ETF Basic Info: N/A');
+  }
 
   if (snapshot.warnings.length) {
     lines.push('', 'Warnings:');

@@ -173,11 +173,12 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
   const latest = values?.[0];
   if (!isObject(latest)) throw new Error('Unexpected Twelve Data response for time_series');
 
+  // Twelve Data API returns numbers as strings, so we must parse them.
   const ohlc = {
-    open: readNumber(latest, 'open'),
-    high: readNumber(latest, 'high'),
-    low: readNumber(latest, 'low'),
-    close: readNumber(latest, 'close'),
+    open: parseFloat(readString(latest, 'open') ?? ''),
+    high: parseFloat(readString(latest, 'high') ?? ''),
+    low: parseFloat(readString(latest, 'low') ?? ''),
+    close: parseFloat(readString(latest, 'close') ?? ''),
   };
 
   if (
@@ -186,15 +187,10 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
     !isFiniteNumber(ohlc.low) ||
     !isFiniteNumber(ohlc.close)
   ) {
-    throw new Error('Missing critical fields in time_series response');
+    throw new Error('Missing or invalid critical fields in time_series response');
   }
-  // The numbers from the API are strings, so we need to parse them.
-  return {
-    open: Number(ohlc.open),
-    high: Number(ohlc.high),
-    low: Number(ohlc.low),
-    close: Number(ohlc.close),
-  };
+
+  return ohlc;
 }
 
 let cache:

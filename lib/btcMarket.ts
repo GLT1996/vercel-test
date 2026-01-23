@@ -168,6 +168,7 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
   const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
+  console.log('Twelve Data time_series response:', data);
   const values = readArray(data, 'values');
   const latest = values?.[0];
   if (!isObject(latest)) throw new Error('Unexpected Twelve Data response for time_series');

@@ -11,7 +11,6 @@ export type BtcDailyOhlc = {
   high: number;
   low: number;
   close: number;
-  volume: number;
 };
 
 export type BtcSnapshot = {
@@ -128,7 +127,7 @@ export async function fetchBtcOpenInterestUsd(): Promise<number> {
 
 export type BtcEtfBasicInfo = {
   name: string;
-  assetClass: string;
+  assetClass?: string;
   expenseRatio?: number;
   marketCap?: number;
   inceptionDate?: string;
@@ -142,6 +141,7 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const url = `https://api.twelvedata.com/etf?symbol=${symbol}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
+  console.log('Twelve Data ETF basic info response:', data);
   if (!isObject(data)) throw new Error('Unexpected Twelve Data response for ETF basic info');
 
   const name = typeof data.name === 'string' ? data.name : undefined;
@@ -150,7 +150,7 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const marketCap = readNumber(data, 'market_cap');
   const inceptionDate = typeof data.inception_date === 'string' ? data.inception_date : undefined;
 
-  if (!name || !assetClass) throw new Error('Missing critical fields in ETF basic info response');
+  if (!name) throw new Error('Missing critical fields in ETF basic info response');
 
   return { name, assetClass, expenseRatio, marketCap, inceptionDate };
 }
@@ -168,7 +168,6 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
   const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
-  console.log('Twelve Data time_series response:', data);
   const values = readArray(data, 'values');
   const latest = values?.[0];
   if (!isObject(latest)) throw new Error('Unexpected Twelve Data response for time_series');
@@ -178,15 +177,13 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
     high: readNumber(latest, 'high'),
     low: readNumber(latest, 'low'),
     close: readNumber(latest, 'close'),
-    volume: readNumber(latest, 'volume'),
   };
 
   if (
     !isFiniteNumber(ohlc.open) ||
     !isFiniteNumber(ohlc.high) ||
     !isFiniteNumber(ohlc.low) ||
-    !isFiniteNumber(ohlc.close) ||
-    !isFiniteNumber(ohlc.volume)
+    !isFiniteNumber(ohlc.close)
   ) {
     throw new Error('Missing critical fields in time_series response');
   }
@@ -196,7 +193,6 @@ export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
     high: Number(ohlc.high),
     low: Number(ohlc.low),
     close: Number(ohlc.close),
-    volume: Number(ohlc.volume),
   };
 }
 
@@ -281,7 +277,6 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
     lines.push(`BTC Daily High: ${formatUsd(snapshot.dailyOhlc.high, { compact: false })}`);
     lines.push(`BTC Daily Low: ${formatUsd(snapshot.dailyOhlc.low, { compact: false })}`);
     lines.push(`BTC Daily Close: ${formatUsd(snapshot.dailyOhlc.close, { compact: false })}`);
-    lines.push(`BTC Daily Volume: ${formatUsd(snapshot.dailyOhlc.volume)}`);
   } else {
     lines.push('BTC Daily Market: N/A');
   }

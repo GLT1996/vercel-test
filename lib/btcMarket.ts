@@ -6,9 +6,18 @@ export type BtcEtfFlow = {
   outflowUsd?: number;
 };
 
+export type BtcDailyOhlc = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
 export type BtcSnapshot = {
   asOfIso: string;
   priceUsd?: number;
+  dailyOhlc?: BtcDailyOhlc;
   etfFlow?: BtcEtfFlow;
   openInterestUsd?: number;
   etfBasicInfo?: BtcEtfBasicInfo;
@@ -28,6 +37,12 @@ function readNumber(obj: unknown, key: string): number | undefined {
   if (!isObject(obj)) return undefined;
   const v = obj[key];
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+
+function readString(obj: unknown, key: string): string | undefined {
+  if (!isObject(obj)) return undefined;
+  const v = obj[key];
+  return typeof v === 'string' ? v : undefined;
 }
 
 function readObject(obj: unknown, key: string): JsonObject | undefined {
@@ -127,7 +142,6 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const url = `https://api.twelvedata.com/etf?symbol=${symbol}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
-  console.log('Twelve Data ETF basic info response:', data);
   if (!isObject(data)) throw new Error('Unexpected Twelve Data response for ETF basic info');
 
   const name = typeof data.name === 'string' ? data.name : undefined;
@@ -139,6 +153,50 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   if (!name || !assetClass) throw new Error('Missing critical fields in ETF basic info response');
 
   return { name, assetClass, expenseRatio, marketCap, inceptionDate };
+}
+
+/**
+ * Provider: Twelve Data (requires API key) for BTC daily OHLC.
+ * Endpoint: https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=1day
+ */
+export async function fetchBtcDailyOhlc(): Promise<BtcDailyOhlc> {
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
+
+  const symbol = 'BTC/USD';
+  const interval = '1day';
+  const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}`;
+
+  const data = await fetchJson(url);
+  const values = readArray(data, 'values');
+  const latest = values?.[0];
+  if (!isObject(latest)) throw new Error('Unexpected Twelve Data response for time_series');
+
+  const ohlc = {
+    open: readNumber(latest, 'open'),
+    high: readNumber(latest, 'high'),
+    low: readNumber(latest, 'low'),
+    close: readNumber(latest, 'close'),
+    volume: readNumber(latest, 'volume'),
+  };
+
+  if (
+    !isFiniteNumber(ohlc.open) ||
+    !isFiniteNumber(ohlc.high) ||
+    !isFiniteNumber(ohlc.low) ||
+    !isFiniteNumber(ohlc.close) ||
+    !isFiniteNumber(ohlc.volume)
+  ) {
+    throw new Error('Missing critical fields in time_series response');
+  }
+  // The numbers from the API are strings, so we need to parse them.
+  return {
+    open: Number(ohlc.open),
+    high: Number(ohlc.high),
+    low: Number(ohlc.low),
+    close: Number(ohlc.close),
+    volume: Number(ohlc.volume),
+  };
 }
 
 let cache:
@@ -161,8 +219,9 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   const asOfIso = new Date().toISOString();
 
-  const [priceRes, etfRes, oiRes, etfBasicInfoRes] = await Promise.allSettled([
+  const [priceRes, ohlcRes, etfRes, oiRes, etfBasicInfoRes] = await Promise.allSettled([
     fetchBtcPriceUsd(),
+    fetchBtcDailyOhlc(),
     fetchBtcEtfNetFlowUsd(),
     fetchBtcOpenInterestUsd(),
     fetchBtcEtfBasicInfo(),
@@ -172,6 +231,9 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   if (priceRes.status === 'fulfilled') snapshot.priceUsd = priceRes.value;
   else warnings.push(`BTC price unavailable: ${toErrorMessage(priceRes.reason)}`);
+
+  if (ohlcRes.status === 'fulfilled') snapshot.dailyOhlc = ohlcRes.value;
+  else warnings.push(`BTC OHLC unavailable: ${toErrorMessage(ohlcRes.reason)}`);
 
   if (etfRes.status === 'fulfilled') snapshot.etfFlow = etfRes.value;
   else warnings.push(`BTC ETF flow unavailable: ${toErrorMessage(etfRes.reason)}`);
@@ -208,14 +270,32 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
   lines.push('=== BTC Daily Snapshot (best-effort) ===');
   lines.push(`As of: ${snapshot.asOfIso}`);
 
-  if (typeof snapshot.priceUsd === 'number') lines.push(`BTC Price: ${formatUsd(snapshot.priceUsd, { compact: false })}`);
-  else lines.push('BTC Price: N/A');
+  if (typeof snapshot.priceUsd === 'number') {
+    lines.push(`BTC Spot Price: ${formatUsd(snapshot.priceUsd, { compact: false })}`);
+  } else {
+    lines.push('BTC Spot Price: N/A');
+  }
 
-  if (snapshot.etfFlow) lines.push(`BTC ETF Net Flow: ${formatSignedUsd(snapshot.etfFlow.netFlowUsd)}`);
-  else lines.push('BTC ETF Net Flow: N/A');
+  if (snapshot.dailyOhlc) {
+    lines.push(`BTC Daily High: ${formatUsd(snapshot.dailyOhlc.high, { compact: false })}`);
+    lines.push(`BTC Daily Low: ${formatUsd(snapshot.dailyOhlc.low, { compact: false })}`);
+    lines.push(`BTC Daily Close: ${formatUsd(snapshot.dailyOhlc.close, { compact: false })}`);
+    lines.push(`BTC Daily Volume: ${formatUsd(snapshot.dailyOhlc.volume)}`);
+  } else {
+    lines.push('BTC Daily Market: N/A');
+  }
 
-  if (typeof snapshot.openInterestUsd === 'number') lines.push(`BTC Open Interest (USD): ${formatUsd(snapshot.openInterestUsd)}`);
-  else lines.push('BTC Open Interest (USD): N/A');
+  if (snapshot.etfFlow) {
+    lines.push(`BTC ETF Net Flow: ${formatSignedUsd(snapshot.etfFlow.netFlowUsd)}`);
+  } else {
+    lines.push('BTC ETF Net Flow: N/A');
+  }
+
+  if (typeof snapshot.openInterestUsd === 'number') {
+    lines.push(`BTC Open Interest: ${formatUsd(snapshot.openInterestUsd)}`);
+  } else {
+    lines.push('BTC Open Interest: N/A');
+  }
 
   if (snapshot.etfBasicInfo) {
     lines.push('');

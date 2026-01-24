@@ -83,7 +83,7 @@ function checkApiKey(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    console.log('Mail API route received a request.' + request);
+    console.log(`Mail API route received a request: ${request.method} ${request.url}`);
     if (!checkApiKey(request)) {
       return NextResponse.json({ ok: false, message: 'Unauthorized' }, { status: 401 });
     }
@@ -103,6 +103,7 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json().catch(() => ({}))) as SendMailBody;
+    console.log('Mail API request body:', JSON.stringify(body));
 
     const to = normalizeEmail(String(body.to ?? ''));
     const subject = normalizeSubject(String(body.subject ?? ''));
@@ -137,6 +138,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: false, message: msg }, { status });
   } finally {
-    console.log('Mail API route processed a request.' + request);
+    console.log(`Mail API route processed a request: ${request.method} ${request.url}`);
   }
 }

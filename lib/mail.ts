@@ -12,6 +12,7 @@ export type SendMailInput = {
   to: string;
   subject: string;
   text: string;
+  html?: string;
   attachments?: MailAttachment[];
 };
 
@@ -54,7 +55,7 @@ export function normalizeSubject(raw: string): string {
   return subject;
 }
 
-export function normalizeText(raw: string): string {
+export function normalizeBody(raw: string): string {
   const text = raw.replace(/\r\n/g, '\n');
   if (!text.trim()) throw new Error('Text is required');
   if (text.length > 10000) throw new Error('Text too long (max 10000)');
@@ -105,6 +106,7 @@ export async function sendMail(input: SendMailInput) {
     to: input.to,
     subject: input.subject,
     text: input.text,
+    html: input.html,
     attachments: normalizeAttachments(input.attachments),
   });
 }

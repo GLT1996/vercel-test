@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
-import { normalizeEmail, normalizeSubject, normalizeText, sendMail } from '@/lib/mail';
-import { buildDailyMailText, getBtcSnapshot } from '@/lib/btcMarket';
+import { normalizeEmail, normalizeSubject, normalizeBody, sendMail, MailAttachment } from '@/lib/mail';
+import {
+  buildDailyMailText,
+  getBtcSnapshot,
+  fetchBtcWeeklyOhlc,
+  generateBtcPriceChart,
+  BtcSnapshot,
+} from '@/lib/btcMarket';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +20,15 @@ function checkCronKey(request: Request) {
   const token = match?.[1] || request.headers.get('x-api-key') || '';
 
   return Boolean(token) && token === expected;
+}
+
+function buildDailyMailHtml(baseText: string, snapshot: BtcSnapshot, chartIncluded: boolean) {
+  const text = buildDailyMailText(baseText, snapshot);
+  const html = `
+    <p>${text.replace(/\n/g, '<br>')}</p>
+    ${chartIncluded ? '<p><img src="cid:btc-price-chart" alt="BTC Price Chart" /></p>' : ''}
+  `;
+  return { text, html };
 }
 
 export async function GET(request: Request) {
@@ -33,11 +48,27 @@ export async function GET(request: Request) {
 
     // Append BTC snapshot (best-effort) to the base text.
     const snapshot = await getBtcSnapshot();
-    const composedText = buildDailyMailText(String(textRaw), snapshot);
-    const text = normalizeText(composedText);
+
+    let chartAttachment: MailAttachment | undefined;
+    try {
+      const weeklyData = await fetchBtcWeeklyOhlc();
+      const chartBuffer = await generateBtcPriceChart(weeklyData);
+      chartAttachment = {
+        filename: 'btc-price-chart.png',
+        content: chartBuffer,
+        contentType: 'image/png',
+        cid: 'btc-price-chart',
+      };
+    } catch (chartError) {
+      console.error('Failed to generate BTC price chart:', chartError);
+      snapshot.warnings.push('Failed to generate BTC price chart.');
+    }
+
+    const { text, html } = buildDailyMailHtml(String(textRaw), snapshot, !!chartAttachment);
+    const attachments = chartAttachment ? [chartAttachment] : [];
 
     console.log('daily-mail cron sending to:', to);
-    const info = await sendMail({ to, subject, text });
+    const info = await sendMail({ to, subject, text, html, attachments });
 
     return NextResponse.json({ ok: true, messageId: info.messageId, warnings: snapshot.warnings });
   } catch (err: unknown) {

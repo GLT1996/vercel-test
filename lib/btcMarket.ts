@@ -155,6 +155,53 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   return { name, assetClass, expenseRatio, marketCap, inceptionDate };
 }
 
+
+export type BtcDatedOhlc = BtcDailyOhlc & {
+  datetime: string;
+};
+
+/**
+ * Provider: Twelve Data (requires API key) for BTC daily OHLC.
+ * Endpoint: https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=1day&outputsize=7
+ */
+export async function fetchBtcWeeklyOhlc(): Promise<BtcDatedOhlc[]> {
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
+
+  const symbol = 'BTC/USD';
+  const interval = '1day';
+  const outputsize = 7;
+  const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}`;
+
+  const data = await fetchJson(url);
+  console.log('Twelve Data time_series response for weekly data:', data);
+  const values = readArray(data, 'values');
+  if (!values) throw new Error('Unexpected Twelve Data response for weekly time_series');
+
+  return values.map((latest, i) => {
+    if (!isObject(latest)) throw new Error(`Unexpected Twelve Data response for time_series at index ${i}`);
+    // Twelve Data API returns numbers as strings, so we must parse them.
+    const ohlc = {
+      open: parseFloat(readString(latest, 'open') ?? ''),
+      high: parseFloat(readString(latest, 'high') ?? ''),
+      low: parseFloat(readString(latest, 'low') ?? ''),
+      close: parseFloat(readString(latest, 'close') ?? ''),
+      datetime: readString(latest, 'datetime') ?? '',
+    };
+
+    if (
+      !isFiniteNumber(ohlc.open) ||
+      !isFiniteNumber(ohlc.high) ||
+      !isFiniteNumber(ohlc.low) ||
+      !isFiniteNumber(ohlc.close) ||
+      !ohlc.datetime
+    ) {
+      throw new Error(`Missing or invalid critical fields in time_series response at index ${i}`);
+    }
+    return ohlc;
+  });
+}
+
 /**
  * Provider: Twelve Data (requires API key) for BTC daily OHLC.
  * Endpoint: https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=1day
@@ -242,6 +289,40 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
   return snapshot;
 }
 
+import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
+import { ChartConfiguration } from 'chart.js';
+
+export async function generateBtcPriceChart(ohlcData: BtcDatedOhlc[]): Promise<Buffer> {
+  const width = 800;
+  const height = 400;
+  const configuration: ChartConfiguration = {
+    type: 'line',
+    data: {
+      labels: ohlcData.map((d) => d.datetime).reverse(),
+      datasets: [
+        {
+          label: 'BTC Open Price (USD)',
+          data: ohlcData.map((d) => d.open).reverse(),
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1,
+        },
+      ],
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: false,
+        },
+      },
+    },
+  };
+  const chartJSNodeCanvas = new ChartJSNodeCanvas({
+    width,
+    height,
+    backgroundColour: 'transparent',
+  });
+  return chartJSNodeCanvas.renderToBuffer(configuration);
+}
 export function formatUsd(n: number, opts?: { compact?: boolean }) {
   const compact = opts?.compact ?? true;
   return new Intl.NumberFormat('en-US', {
@@ -271,6 +352,7 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
   }
 
   if (snapshot.dailyOhlc) {
+    lines.push(`BTC Daily Open: ${formatUsd(snapshot.dailyOhlc.open, { compact: false })}`);
     lines.push(`BTC Daily High: ${formatUsd(snapshot.dailyOhlc.high, { compact: false })}`);
     lines.push(`BTC Daily Low: ${formatUsd(snapshot.dailyOhlc.low, { compact: false })}`);
     lines.push(`BTC Daily Close: ${formatUsd(snapshot.dailyOhlc.close, { compact: false })}`);

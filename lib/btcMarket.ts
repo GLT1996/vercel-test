@@ -289,13 +289,8 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
   return snapshot;
 }
 
-import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
-import { ChartConfiguration } from 'chart.js';
-
 export async function generateBtcPriceChart(ohlcData: BtcDatedOhlc[]): Promise<Buffer> {
-  const width = 800;
-  const height = 400;
-  const configuration: ChartConfiguration = {
+  const chartConfig = {
     type: 'line',
     data: {
       labels: ohlcData.map((d) => d.datetime).reverse(),
@@ -316,13 +311,16 @@ export async function generateBtcPriceChart(ohlcData: BtcDatedOhlc[]): Promise<B
       },
     },
   };
-  const chartJSNodeCanvas = new ChartJSNodeCanvas({
-    width,
-    height,
-    backgroundColour: 'transparent',
-  });
-  return chartJSNodeCanvas.renderToBuffer(configuration);
+
+  const url = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`QuickChart request failed with status ${response.status}`);
+  }
+  const imageBuffer = await response.arrayBuffer();
+  return Buffer.from(imageBuffer);
 }
+
 export function formatUsd(n: number, opts?: { compact?: boolean }) {
   const compact = opts?.compact ?? true;
   return new Intl.NumberFormat('en-US', {

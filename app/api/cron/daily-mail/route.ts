@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { normalizeEmail, normalizeSubject, normalizeBody, sendMail, MailAttachment } from '@/lib/mail';
+import { normalizeEmail, normalizeSubject, sendMail, MailAttachment } from '@/lib/mail';
 import {
   buildDailyMailText,
   getBtcSnapshot,
-  fetchBtcWeeklyOhlc,
+  fetchBtcOhlcData,
   generateBtcPriceChart,
   BtcSnapshot,
 } from '@/lib/btcMarket';

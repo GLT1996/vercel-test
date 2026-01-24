@@ -106,6 +106,31 @@ export async function fetchBtcPriceUsd(): Promise<number> {
 }
 
 /**
+ * Provider: Twelve Data (requires API key) for real-time BTC price.
+ * Endpoint: https://api.twelvedata.com/price?symbol=BTC/USD
+ */
+export async function fetchBtcPriceUsdFromTwelveData(): Promise<number> {
+  const apiKey = process.env.TWELVEDATA_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
+
+  const symbol = 'BTC/USD';
+  const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${apiKey}`;
+
+  const data = await fetchJson(url);
+
+  if (!isObject(data)) {
+    throw new Error('Unexpected Twelve Data response for BTC price');
+  }
+
+  const price = parseFloat(readString(data, 'price') ?? '');
+
+  if (!isFiniteNumber(price)) {
+    throw new Error('Unexpected Twelve Data response for BTC price');
+  }
+  return price;
+}
+
+/**
  * Provider: Twelve Data (requires API key) for BTC ETF flows.
  * We aggregate across a common set of US spot ETFs.
  */
@@ -261,7 +286,7 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
   const asOfIso = new Date().toISOString();
 
   const [priceRes, ohlcRes, etfRes, oiRes, etfBasicInfoRes] = await Promise.allSettled([
-    fetchBtcPriceUsd(),
+    fetchBtcPriceUsdFromTwelveData(),
     fetchBtcDailyOhlc(),
     fetchBtcEtfNetFlowUsd(),
     fetchBtcOpenInterestUsd(),
@@ -362,9 +387,9 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
   lines.push(`As of: ${snapshot.asOfIso}`);
 
   if (typeof snapshot.priceUsd === 'number') {
-    lines.push(`BTC Spot Price: ${formatUsd(snapshot.priceUsd, { compact: false })}`);
+    lines.push(`BTC Price: ${formatUsd(snapshot.priceUsd, { compact: false })}`);
   } else {
-    lines.push('BTC Spot Price: N/A');
+    lines.push('BTC Price: N/A');
   }
 
   if (snapshot.dailyOhlc) {

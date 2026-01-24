@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { normalizeEmail, normalizeSubject, normalizeText, sendMail, type MailAttachment } from '@/lib/mail';
+import { normalizeEmail, normalizeSubject, normalizeBody, sendMail, type MailAttachment } from '@/lib/mail';
 import { rateLimit } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 
     const to = normalizeEmail(String(body.to ?? ''));
     const subject = normalizeSubject(String(body.subject ?? ''));
-    const text = normalizeText(String(body.text ?? ''));
+    const text = normalizeBody(String(body.text ?? ''));
     const attachments = parseAttachments(body.attachments);
 
     const info = await sendMail({ to, subject, text, attachments });

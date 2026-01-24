@@ -164,17 +164,17 @@ export type BtcDatedOhlc = BtcDailyOhlc & {
  * Provider: Twelve Data (requires API key) for BTC daily OHLC.
  * Endpoint: https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=1day&outputsize=7
  */
-export async function fetchBtcWeeklyOhlc(): Promise<BtcDatedOhlc[]> {
+export async function fetchBtcOhlcData(): Promise<BtcDatedOhlc[]> {
   const apiKey = process.env.TWELVEDATA_API_KEY;
   if (!apiKey) throw new Error('Missing environment variable: TWELVEDATA_API_KEY. Please add it to your environment.');
 
   const symbol = 'BTC/USD';
   const interval = '1day';
-  const outputsize = 7;
+  const outputsize = 21;
   const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}`;
 
   const data = await fetchJson(url);
-  console.log('Twelve Data time_series response for weekly data:', data);
+  console.log('Twelve Data time_series' + url + ' response for 3-week data:', data);
   const values = readArray(data, 'values');
   if (!values) throw new Error('Unexpected Twelve Data response for weekly time_series');
 
@@ -296,9 +296,27 @@ export async function generateBtcPriceChart(ohlcData: BtcDatedOhlc[]): Promise<B
       labels: ohlcData.map((d) => d.datetime).reverse(),
       datasets: [
         {
-          label: 'BTC Open Price (USD)',
+          label: 'Open',
           data: ohlcData.map((d) => d.open).reverse(),
           borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1,
+        },
+        {
+          label: 'High',
+          data: ohlcData.map((d) => d.high).reverse(),
+          borderColor: 'rgb(255, 99, 132)',
+          tension: 0.1,
+        },
+        {
+          label: 'Low',
+          data: ohlcData.map((d) => d.low).reverse(),
+          borderColor: 'rgb(54, 162, 235)',
+          tension: 0.1,
+        },
+        {
+          label: 'Close',
+          data: ohlcData.map((d) => d.close).reverse(),
+          borderColor: 'rgb(255, 206, 86)',
           tension: 0.1,
         },
       ],

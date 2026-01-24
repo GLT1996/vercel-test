@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
     let chartAttachment: MailAttachment | undefined;
     try {
-      const weeklyData = await fetchBtcWeeklyOhlc();
+      const weeklyData = await fetchBtcOhlcData();
       const chartBuffer = await generateBtcPriceChart(weeklyData);
       chartAttachment = {
         filename: 'btc-price-chart.png',

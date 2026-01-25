@@ -152,15 +152,24 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   const symbol = 'IBIT'; // Picking one major BTC ETF for basic info
   const url = `https://api.twelvedata.com/etf?symbol=${symbol}&apikey=${apiKey}`;
 
-  const data = await fetchJson(url);
-  console.log('Twelve Data ETF basic info response:', data);
-  if (!isObject(data)) throw new Error('Unexpected Twelve Data response for ETF basic info');
+  const responseData = await fetchJson(url);
+  console.log('Twelve Data ETF basic info response:', responseData);
 
-  const name = typeof data.name === 'string' ? data.name : undefined;
-  const assetClass = typeof data.asset_class === 'string' ? data.asset_class : undefined;
-  const expenseRatio = readNumber(data, 'expense_ratio');
-  const marketCap = readNumber(data, 'market_cap');
-  const inceptionDate = typeof data.inception_date === 'string' ? data.inception_date : undefined;
+  if (!isObject(responseData) || !Array.isArray(responseData.data)) {
+    throw new Error('Unexpected Twelve Data response structure for ETF basic info');
+  }
+
+  const etfInfo = responseData.data.find(etf => etf && typeof etf === 'object' && etf.exchange === 'NASDAQ');
+
+  if (!etfInfo || !isObject(etfInfo)) {
+    throw new Error('Could not find NASDAQ IBIT ETF in Twelve Data response');
+  }
+
+  const name = typeof etfInfo.name === 'string' ? etfInfo.name : undefined;
+  const assetClass = typeof etfInfo.asset_class === 'string' ? etfInfo.asset_class : undefined;
+  const expenseRatio = readNumber(etfInfo, 'expense_ratio');
+  const marketCap = readNumber(etfInfo, 'market_cap');
+  const inceptionDate = typeof etfInfo.inception_date === 'string' ? etfInfo.inception_date : undefined;
 
   if (!name) throw new Error('Missing critical fields in ETF basic info response');
 
@@ -173,7 +182,7 @@ export async function fetchBtcEtfDataFromAlphaVantage(symbol: string): Promise<B
 
   const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
   const data = await fetchJson(url);
-
+  console.log(`Alpha Vantage GLOBAL_QUOTE response for ${symbol}:`, data);
   const globalQuote = readObject(data, 'Global Quote');
   if (!globalQuote) throw new Error(`Unexpected Alpha Vantage response for ${symbol}`);
 

@@ -10,6 +10,7 @@
 *   变量命名使用 camelCase。
 *   确保所有新代码都遵循 ESLint 规则（可以通过 `npm run lint` 运行）。
 *   不需要写单元测试，除非特别指定。
+*   调用外部接口后，需要使用console.log打印日志。
 
 ## 关键库/框架
 *   Next.js (React)

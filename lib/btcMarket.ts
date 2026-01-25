@@ -25,8 +25,6 @@ export type BtcSnapshot = {
   asOfIso: string;
   priceUsd?: number;
   dailyOhlc?: BtcDailyOhlc;
-  etfFlow?: BtcEtfFlow;
-  openInterestUsd?: number;
   etfBasicInfo?: BtcEtfBasicInfo;
   etfData?: BtcEtfData[];
   /** Any provider errors (we keep sending even if something fails). */
@@ -137,26 +135,6 @@ export async function fetchBtcPriceUsdFromTwelveData(): Promise<number> {
     throw new Error('Unexpected Twelve Data response for BTC price');
   }
   return price;
-}
-
-/**
- * Provider: Twelve Data (requires API key) for BTC ETF flows.
- * We aggregate across a common set of US spot ETFs.
- */
-export async function fetchBtcEtfNetFlowUsd(): Promise<BtcEtfFlow> {
-  // The Twelve Data /fund_flow endpoint appears to be deprecated as it returns a 404.
-  // A replacement data source is needed to restore this functionality.
-  throw new Error('BTC ETF flow unavailable: The Twelve Data API endpoint (/fund_flow) is no longer working.');
-}
-
-/**
- * Provider: Twelve Data (requires API key) for BTC futures Open Interest (USD).
- * We make a best-effort attempt to parse the 'open_interest' technical indicator.
- */
-export async function fetchBtcOpenInterestUsd(): Promise<number> {
-  // The Twelve Data /open_interest endpoint appears to be deprecated as it returns a 404.
-  // A replacement data source is needed to restore this functionality.
-  throw new Error('BTC open interest unavailable: The Twelve Data API endpoint (/open_interest) is no longer working.');
 }
 
 export type BtcEtfBasicInfo = {
@@ -341,11 +319,9 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   const asOfIso = new Date().toISOString();
 
-  const [priceRes, ohlcRes, etfRes, oiRes, etfBasicInfoRes, etfDataRes] = await Promise.allSettled([
+  const [priceRes, ohlcRes, etfBasicInfoRes, etfDataRes] = await Promise.allSettled([
     fetchBtcPriceUsdFromTwelveData(),
     fetchBtcDailyOhlc(),
-    fetchBtcEtfNetFlowUsd(),
-    fetchBtcOpenInterestUsd(),
     fetchBtcEtfBasicInfo(),
     fetchMultipleBtcEtfData(),
   ]);
@@ -357,12 +333,6 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   if (ohlcRes.status === 'fulfilled') snapshot.dailyOhlc = ohlcRes.value;
   else warnings.push(`BTC OHLC unavailable: ${toErrorMessage(ohlcRes.reason)}`);
-
-  if (etfRes.status === 'fulfilled') snapshot.etfFlow = etfRes.value;
-  else warnings.push(`BTC ETF flow unavailable: ${toErrorMessage(etfRes.reason)}`);
-
-  if (oiRes.status === 'fulfilled') snapshot.openInterestUsd = oiRes.value;
-  else warnings.push(`BTC open interest unavailable: ${toErrorMessage(oiRes.reason)}`);
 
   if (etfBasicInfoRes.status === 'fulfilled') snapshot.etfBasicInfo = etfBasicInfoRes.value;
   else warnings.push(`BTC ETF basic info unavailable: ${toErrorMessage(etfBasicInfoRes.reason)}`);
@@ -463,18 +433,6 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
     lines.push(`BTC Daily Close: ${formatUsd(snapshot.dailyOhlc.close, { compact: false })}`);
   } else {
     lines.push('BTC Daily Market: N/A');
-  }
-
-  if (snapshot.etfFlow) {
-    lines.push(`BTC ETF Net Flow: ${formatSignedUsd(snapshot.etfFlow.netFlowUsd)}`);
-  } else {
-    lines.push('BTC ETF Net Flow: N/A');
-  }
-
-  if (typeof snapshot.openInterestUsd === 'number') {
-    lines.push(`BTC Open Interest: ${formatUsd(snapshot.openInterestUsd)}`);
-  } else {
-    lines.push('BTC Open Interest: N/A');
   }
 
   if (snapshot.etfBasicInfo) {

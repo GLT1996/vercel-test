@@ -12,7 +12,7 @@ export default function BtcWalletGenerator() {
   const [privateKey, setPrivateKey] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [inputPrivateKey, setInputPrivateKey] = useState<string>(''); // New state for input
+  const [inputPrivateKey, setInputPrivateKey] = useState<string>('0'.repeat(64)); // New state for input
   const [error, setError] = useState<string | null>(null); // New state for error messages
 
   // Helper function to derive public key and address from a given private key

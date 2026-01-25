@@ -13,6 +13,14 @@ export type BtcDailyOhlc = {
   close: number;
 };
 
+export type BtcEtfData = {
+  symbol: string;
+  price: number;
+  volume: number;
+  change: number;
+  changePercent: string;
+};
+
 export type BtcSnapshot = {
   asOfIso: string;
   priceUsd?: number;
@@ -20,6 +28,7 @@ export type BtcSnapshot = {
   etfFlow?: BtcEtfFlow;
   openInterestUsd?: number;
   etfBasicInfo?: BtcEtfBasicInfo;
+  etfData?: BtcEtfData[];
   /** Any provider errors (we keep sending even if something fails). */
   warnings: string[];
 };
@@ -180,6 +189,53 @@ export async function fetchBtcEtfBasicInfo(): Promise<BtcEtfBasicInfo> {
   return { name, assetClass, expenseRatio, marketCap, inceptionDate };
 }
 
+export async function fetchBtcEtfDataFromAlphaVantage(symbol: string): Promise<BtcEtfData> {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+  if (!apiKey) throw new Error('Missing environment variable: ALPHA_VANTAGE_API_KEY. Please add it to your environment.');
+
+  const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
+  const data = await fetchJson(url);
+
+  const globalQuote = readObject(data, 'Global Quote');
+  if (!globalQuote) throw new Error(`Unexpected Alpha Vantage response for ${symbol}`);
+
+  const price = parseFloat(readString(globalQuote, '05. price') ?? '');
+  const volume = parseInt(readString(globalQuote, '06. volume') ?? '', 10);
+  const change = parseFloat(readString(globalQuote, '09. change') ?? '');
+  const changePercent = readString(globalQuote, '10. change percent') ?? '';
+
+  if (!isFiniteNumber(price) || !isFiniteNumber(volume) || !isFiniteNumber(change) || !changePercent) {
+    throw new Error(`Missing or invalid critical fields in Alpha Vantage response for ${symbol}`);
+  }
+
+  return {
+    symbol,
+    price,
+    volume,
+    change,
+    changePercent,
+  };
+}
+
+export async function fetchMultipleBtcEtfData(): Promise<{ etfData: BtcEtfData[], warnings: string[] }> {
+  const symbols = ['IBIT', 'FBTC', 'GBTC'];
+  const promises = symbols.map(symbol => fetchBtcEtfDataFromAlphaVantage(symbol));
+  const results = await Promise.allSettled(promises);
+
+  const etfData: BtcEtfData[] = [];
+  const warnings: string[] = [];
+
+  results.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      etfData.push(result.value);
+    } else {
+      warnings.push(`Failed to fetch ETF data for ${symbols[i]}: ${toErrorMessage(result.reason)}`);
+    }
+  });
+
+  return { etfData, warnings };
+}
+
 
 export type BtcDatedOhlc = BtcDailyOhlc & {
   datetime: string;
@@ -285,12 +341,13 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   const asOfIso = new Date().toISOString();
 
-  const [priceRes, ohlcRes, etfRes, oiRes, etfBasicInfoRes] = await Promise.allSettled([
+  const [priceRes, ohlcRes, etfRes, oiRes, etfBasicInfoRes, etfDataRes] = await Promise.allSettled([
     fetchBtcPriceUsdFromTwelveData(),
     fetchBtcDailyOhlc(),
     fetchBtcEtfNetFlowUsd(),
     fetchBtcOpenInterestUsd(),
     fetchBtcEtfBasicInfo(),
+    fetchMultipleBtcEtfData(),
   ]);
 
   const snapshot: BtcSnapshot = { asOfIso, warnings };
@@ -309,6 +366,13 @@ export async function getBtcSnapshot(opts?: { ttlMs?: number }): Promise<BtcSnap
 
   if (etfBasicInfoRes.status === 'fulfilled') snapshot.etfBasicInfo = etfBasicInfoRes.value;
   else warnings.push(`BTC ETF basic info unavailable: ${toErrorMessage(etfBasicInfoRes.reason)}`);
+
+  if (etfDataRes.status === 'fulfilled') {
+    snapshot.etfData = etfDataRes.value.etfData;
+    warnings.push(...etfDataRes.value.warnings);
+  } else {
+    warnings.push(`BTC ETF data unavailable: ${toErrorMessage(etfDataRes.reason)}`);
+  }
 
   cache = { atMs: now, value: snapshot };
   return snapshot;
@@ -429,6 +493,19 @@ export function buildDailyMailText(baseText: string, snapshot: BtcSnapshot) {
     }
   } else {
     lines.push('', 'BTC ETF Basic Info: N/A');
+  }
+
+  if (snapshot.etfData && snapshot.etfData.length > 0) {
+    lines.push('');
+    lines.push('=== BTC ETF Market Data ===');
+    for (const etf of snapshot.etfData) {
+      lines.push(`- ${etf.symbol}:`);
+      lines.push(`  Price: ${formatUsd(etf.price, { compact: false })}`);
+      lines.push(`  Volume: ${etf.volume.toLocaleString()}`);
+      lines.push(`  Change: ${etf.change > 0 ? '+' : ''}${etf.change.toFixed(2)} (${etf.changePercent})`);
+    }
+  } else {
+    lines.push('', 'BTC ETF Market Data: N/A');
   }
 
   if (snapshot.warnings.length) {

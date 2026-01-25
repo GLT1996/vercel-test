@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { bytesToHex } from 'ethereum-cryptography/utils.js';
-import { randomBytes } from 'ethereum-cryptography/random.js';
+import { getRandomBytesSync } from 'ethereum-cryptography/random.js';
 
 export default function BtcWalletGenerator() {
   const [privateKey, setPrivateKey] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
 
   const generateWallet = () => {
-    const privateKeyBytes = randomBytes(32);
+    const privateKeyBytes = getRandomBytesSync(32);
     const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes);
     
     setPrivateKey(bytesToHex(privateKeyBytes));

@@ -206,19 +206,21 @@ export async function fetchBtcEtfDataFromAlphaVantage(symbol: string): Promise<B
 
 export async function fetchMultipleBtcEtfData(): Promise<{ etfData: BtcEtfData[], warnings: string[] }> {
   const symbols = ['IBIT', 'FBTC', 'GBTC'];
-  const promises = symbols.map(symbol => fetchBtcEtfDataFromAlphaVantage(symbol));
-  const results = await Promise.allSettled(promises);
-
   const etfData: BtcEtfData[] = [];
   const warnings: string[] = [];
 
-  results.forEach((result, i) => {
-    if (result.status === 'fulfilled') {
-      etfData.push(result.value);
-    } else {
-      warnings.push(`Failed to fetch ETF data for ${symbols[i]}: ${toErrorMessage(result.reason)}`);
+  for (const symbol of symbols) {
+    try {
+      const data = await fetchBtcEtfDataFromAlphaVantage(symbol);
+      etfData.push(data);
+    } catch (error) {
+      warnings.push(`Failed to fetch ETF data for ${symbol}: ${toErrorMessage(error)}`);
     }
-  });
+    // Wait for 2 seconds before the next call
+    if (symbols.indexOf(symbol) < symbols.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
 
   return { etfData, warnings };
 }

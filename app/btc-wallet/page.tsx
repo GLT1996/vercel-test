@@ -1,4 +1,5 @@
 import BtcWalletGenerator from '../components/BtcWalletGenerator';
+import DataConverter from '../components/DataConverter';
 
 export default function BtcWalletPage() {
   return (
@@ -6,6 +7,8 @@ export default function BtcWalletPage() {
         <main className="flex min-h-screen w-full flex-col items-center justify-center py-10 px-4 bg-white dark:bg-black md:px-8 lg:px-16">
             <h1 className="text-2xl font-bold mb-4">BTC Wallet Generator</h1>
             <BtcWalletGenerator />
+            <div className="my-8 h-px w-full max-w-lg bg-zinc-200 dark:bg-zinc-800"></div>
+            <DataConverter />
         </main>
     </div>
   );

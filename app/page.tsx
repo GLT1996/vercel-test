@@ -47,7 +47,13 @@ export default async function Home() {
               href="/btc-wallet"
               className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
           >
-            BTC钱包生成工具
+            数据转换
+          </Link>
+          <Link
+              href="/data-filter"
+              className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
+          >
+            数据去重工具
           </Link>
         </div>
       </main>

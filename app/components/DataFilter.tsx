@@ -1,18 +1,62 @@
 "use client";
 import { useState } from "react";
+import * as ExcelJS from "exceljs";
 
 export default function DataFilter() {
   const [sourceData, setSourceData] = useState("");
   const [filterData, setFilterData] = useState("");
   const [result, setResult] = useState("");
+  const [stats, setStats] = useState({
+    sourceCount: 0,
+    filterCount: 0,
+    deduplicatedCount: 0, // New stat
+    resultCount: 0,
+  });
 
   const handleFilter = () => {
-    const sourceLines = sourceData.split("\n");
-    const filterLines = new Set(filterData.split("\n").filter(line => line.trim() !== ""));
-    const filteredResult = sourceLines.filter(line => !filterLines.has(line));
-    // Deduplicate the filtered result
-    const deduplicatedResult = [...new Set(filteredResult)];
+    const sourceLines = sourceData.split("\n").filter(line => line.trim() !== "");
+    const filterLines = filterData.split("\n").filter(line => line.trim() !== "");
+    const filterLinesSet = new Set(filterLines);
+    
+    const linesKept = sourceLines.filter(line => !filterLinesSet.has(line));
+    const linesFilteredOut = sourceLines.filter(line => filterLinesSet.has(line));
+
+    const deduplicatedResult = [...new Set(linesKept)];
     setResult(deduplicatedResult.join("\n"));
+    setStats({
+        sourceCount: sourceLines.length,
+        filterCount: linesFilteredOut.length,
+        deduplicatedCount: linesKept.length - deduplicatedResult.length, // Calculate new stat
+        resultCount: deduplicatedResult.length,
+    });
+  };
+
+  const handleExport = async () => {
+    if (!result) {
+        alert("没有可导出的数据。");
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('去重结果');
+
+    const data = result.split('\n').map(line => ([line]));
+
+    worksheet.addRows(data);
+
+    try {
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data_filter_result.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (error) {
+        console.error("导出 Excel 失败:", error);
+        alert("导出 Excel 失败。");
+    }
   };
 
   return (
@@ -46,12 +90,18 @@ export default function DataFilter() {
           />
         </div>
       </div>
-      <div className="mt-4 flex justify-center">
+      <div className="mt-4 flex justify-center gap-4">
         <button
           onClick={handleFilter}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           开始去重
+        </button>
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          导出为 Excel
         </button>
       </div>
       <div className="mt-4">
@@ -66,6 +116,9 @@ export default function DataFilter() {
           value={result}
           placeholder="去重结果将显示在这里"
         />
+        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          源数据: {stats.sourceCount} 条 | 过滤数据: {stats.filterCount} 条 | 因重复移除: {stats.deduplicatedCount} 条 | 最终结果: {stats.resultCount} 条
+        </div>
       </div>
     </div>
   );

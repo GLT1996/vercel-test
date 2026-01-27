@@ -1,8 +1,11 @@
 "use client";
 import 'setimmediate';
 import { useState } from 'react';
-import { simpleParser, ParsedMail, Address } from 'mailparser';
+import { simpleParser, ParsedMail } from 'mailparser';
 import { Buffer } from 'buffer';
+
+type ExtractAddressType<T> = T extends (infer U)[] ? U : T;
+type Address = ExtractAddressType<NonNullable<ParsedMail['from']>>;
 
 export default function EmlViewer() {
     const [mailData, setMailData] = useState<ParsedMail | null>(null);

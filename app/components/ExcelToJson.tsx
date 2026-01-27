@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ExcelJS from "exceljs";
+import type { CellValue } from "exceljs";
 
 export default function ExcelToJson() {
   const [jsonOutput, setJsonOutput] = useState<string>("");
@@ -23,6 +23,7 @@ export default function ExcelToJson() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        const ExcelJS = await import("exceljs");
         const data = e.target?.result;
         if (!data) {
           setError("Failed to read file.");
@@ -42,19 +43,19 @@ export default function ExcelToJson() {
         // Assumes the first row is the header.
         const headerRow = worksheet.getRow(1);
         const headerValues = Array.isArray(headerRow.values) ? headerRow.values : [];
-        const headers = (headerValues as ExcelJS.CellValue[])
+        const headers = (headerValues as CellValue[])
           .slice(1)
-          .map((v: ExcelJS.CellValue) => (v == null ? "" : String(v)))
+          .map((v: CellValue) => (v == null ? "" : String(v)))
           .map((h: string) => h.trim());
 
         const json: Record<string, string>[] = [];
         worksheet.eachRow((row, rowNumber) => {
           if (rowNumber === 1) return;
           const rowValues = Array.isArray(row.values) ? row.values : [];
-          const values = (rowValues as ExcelJS.CellValue[]).slice(1);
+          const values = (rowValues as CellValue[]).slice(1);
 
           // Skip completely empty rows
-          const hasAnyValue = values.some((v: ExcelJS.CellValue) => v != null && String(v).trim() !== "");
+          const hasAnyValue = values.some((v: CellValue) => v != null && String(v).trim() !== "");
           if (!hasAnyValue) return;
 
           const obj: Record<string, string> = {};

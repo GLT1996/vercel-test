@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import ExcelJS from "exceljs";
 
 export default function JsonToExcel() {
   const [jsonInput, setJsonInput] = useState<string>(
@@ -50,6 +49,7 @@ export default function JsonToExcel() {
     }
 
     try {
+      const ExcelJS = await import("exceljs");
       const rows = data as Array<Record<string, unknown>>;
 
       // Use union of keys across rows to avoid dropping columns.
@@ -96,7 +96,7 @@ export default function JsonToExcel() {
       a.href = url;
       a.download = finalFileName;
       document.body.appendChild(a);
-      a.click();
+a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {

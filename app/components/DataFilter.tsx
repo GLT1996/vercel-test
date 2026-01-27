@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import * as ExcelJS from "exceljs";
 
 export default function DataFilter() {
   const [sourceData, setSourceData] = useState("");
@@ -37,6 +36,7 @@ export default function DataFilter() {
         return;
     }
 
+    const ExcelJS = await import('exceljs');
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('去重结果');
 

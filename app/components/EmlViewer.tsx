@@ -1,12 +1,22 @@
 "use client";
 import 'setimmediate';
 import { useState } from 'react';
-import { simpleParser, ParsedMail } from 'mailparser';
+import { simpleParser, ParsedMail, Address } from 'mailparser';
 import { Buffer } from 'buffer';
 
 export default function EmlViewer() {
     const [mailData, setMailData] = useState<ParsedMail | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    const formatAddresses = (addresses: Address | Address[] | undefined) => {
+        if (!addresses) {
+            return 'N/A';
+        }
+        if (Array.isArray(addresses)) {
+            return addresses.map(addr => addr.text).join(', ');
+        }
+        return addresses.text;
+    };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -74,9 +84,9 @@ export default function EmlViewer() {
                         <strong className="text-gray-600 dark:text-gray-400">主题:</strong>
                         <span>{mailData.subject || '无主题'}</span>
                         <strong className="text-gray-600 dark:text-gray-400">发件人:</strong>
-                        <span>{mailData.from?.text || 'N/A'}</span>
+                        <span>{formatAddresses(mailData.from)}</span>
                         <strong className="text-gray-600 dark:text-gray-400">收件人:</strong>
-                        <span>{mailData.to?.text || 'N/A'}</span>
+                        <span>{formatAddresses(mailData.to)}</span>
                         <strong className="text-gray-600 dark:text-gray-400">日期:</strong>
                         <span>{mailData.date ? mailData.date.toLocaleString() : 'N/A'}</span>
                     </div>

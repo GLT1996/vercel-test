@@ -35,7 +35,7 @@ export default function EmlViewer() {
         return (
             <ul>
                 {mailData.attachments.map((att, index) => {
-                    const blob = new Blob([att.content], { type: att.contentType });
+                    const blob = new Blob([att.content.buffer], { type: att.contentType });
                     const url = URL.createObjectURL(blob);
                     return (
                         <li key={index} className="mb-2">

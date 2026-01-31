@@ -1,12 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    resolveAlias: {
-      // Mock 'fs' for browser environment
-      fs: './lib/empty-module.js',
-    },
-  },
+  /* config options here */
 };
 
 export default nextConfig;

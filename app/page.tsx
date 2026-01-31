@@ -56,6 +56,12 @@ export default async function Home() {
             数据去重工具
           </Link>
           <Link
+              href="/ai-qa"
+              className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
+          >
+            AI 知识库问答
+          </Link>
+          <Link
               href="/eml-viewer"
               className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
           >

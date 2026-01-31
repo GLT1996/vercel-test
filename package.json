@@ -15,6 +15,11 @@
     "debug": "next dev --inspect"
   },
   "dependencies": {
+    "@langchain/community": "^1.1.10",
+    "@langchain/core": "^1.1.18",
+    "@langchain/google-genai": "^2.1.14",
+    "@langchain/openai": "^1.2.4",
+    "@langchain/textsplitters": "^1.0.1",
     "@prisma/client": "^5.20.0",
     "@types/bs58": "^4.0.4",
     "@types/mailparser": "^3.4.6",
@@ -23,9 +28,12 @@
     "buffer": "^6.0.3",
     "ethereum-cryptography": "^3.2.0",
     "exceljs": "^4.4.0",
+    "langchain": "^1.2.16",
     "mailparser": "^3.9.1",
     "next": "16.1.1",
     "nodemailer": "^7.0.12",
+    "openai": "^6.17.0",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "setimmediate": "^1.0.5"
@@ -36,6 +44,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.5",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

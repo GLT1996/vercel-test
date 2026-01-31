@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
                 model: "gemini-1.5-flash-latest",
                 apiKey: process.env.GOOGLE_API_KEY,
                 maxOutputTokens: 2048,
-                apiVersion: "v1beta",
             });
         } else {
              model = new ChatOpenAI({

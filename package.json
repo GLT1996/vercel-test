@@ -15,6 +15,7 @@
     "debug": "next dev --inspect"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@langchain/community": "^1.1.10",
     "@langchain/core": "^1.1.18",
     "@langchain/google-genai": "^2.1.14",
@@ -26,6 +27,7 @@
     "bcryptjs": "^2.4.3",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
+    "dotenv": "^17.2.3",
     "ethereum-cryptography": "^3.2.0",
     "exceljs": "^4.4.0",
     "langchain": "^1.2.16",

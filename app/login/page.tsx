@@ -1,7 +1,14 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
+type User = {
+  id: string;
+  username: string;
+  email: string | null;
+  createdAt: string;
+};
 
 const TabButton = ({
   active,
@@ -33,10 +40,52 @@ function Login() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      } else {
+        setError("Failed to fetch users.");
+      }
+    } catch {
+      setError("An error occurred while fetching users.");
+    }
+  };
+
+  useEffect(() => {
+    if (showAdminPanel) {
+      fetchUsers();
+    }
+  }, [showAdminPanel]);
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      try {
+        const res = await fetch(`/api/admin/users/${userId}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          setMessage("User deleted successfully.");
+          fetchUsers(); // Refresh the user list
+        } else {
+          const data = await res.json();
+          setError(data.message || "Failed to delete user.");
+        }
+      } catch {
+        setError("An error occurred while deleting the user.");
+      }
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +104,13 @@ function Login() {
       });
 
       if (res.ok) {
-        router.push(from || "/ai-qa");
-        router.refresh();
+        if (username === "admin") {
+          setIsAdmin(true);
+          setShowAdminPanel(true);
+        } else {
+          router.push(from || "/ai-qa");
+          router.refresh();
+        }
       } else {
         const data = await res.json();
         setError(data.message || "登录失败");
@@ -120,8 +174,8 @@ function Login() {
       const data = await res.json();
       if (res.ok) {
         setMessage("注册成功！现在您可以登录了。");
-        setIsRegistering(false); // Switch back to login form
-        setUsername(username); // Pre-fill username
+        setIsRegistering(false);
+        setUsername(username);
         setPassword("");
         setError("");
       } else {
@@ -131,6 +185,47 @@ function Login() {
       setError("注册时发生错误");
     }
   };
+
+  if (showAdminPanel) {
+    return (
+      <div className="flex min-h-screen w-full items-start justify-center bg-zinc-50 font-sans dark:bg-black p-4">
+        <div className="w-full max-w-4xl p-8 bg-white dark:bg-[#111] rounded-lg shadow-md border border-zinc-200 dark:border-zinc-800">
+          <h1 className="text-2xl font-bold text-center mb-6">Admin Panel</h1>
+          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+          {message && <p className="text-green-500 text-sm text-center mb-4">{message}</p>}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+              <thead className="bg-zinc-50 dark:bg-zinc-800">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Username</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Email</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">Created At</th>
+                  <th scope="col" className="relative px-6 py-3">
+                    <span className="sr-only">Delete</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-[#111] divide-y divide-zinc-200 dark:divide-zinc-700">
+                {users.map((user) => (
+                  <tr key={user.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-zinc-900 dark:text-zinc-100">{user.username}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">{user.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">{new Date(user.createdAt).toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900 dark:hover:text-red-400">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button onClick={() => setShowAdminPanel(false)} className="mt-6 w-full py-2 px-4 bg-zinc-200 text-black dark:bg-zinc-800 dark:text-white rounded-md hover:opacity-90">
+            Back to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-zinc-50 font-sans dark:bg-black">

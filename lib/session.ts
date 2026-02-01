@@ -1,4 +1,12 @@
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+
+export interface SessionPayload extends JWTPayload {
+  user?: {
+    id: string;
+    username: string;
+  };
+  expires?: Date;
+}
 
 const secretKey = process.env.JWT_SECRET;
 // It's crucial to ensure the secret key is defined and has a sufficient length
@@ -7,7 +15,7 @@ if (!secretKey || secretKey.length < 32) {
 }
 const key = new TextEncoder().encode(secretKey);
 
-export async function encrypt(payload: Record<string, unknown>) {
+export async function encrypt(payload: SessionPayload) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -15,9 +23,9 @@ export async function encrypt(payload: Record<string, unknown>) {
     .sign(key);
 }
 
-export async function decrypt(input: string): Promise<object | null> {
+export async function decrypt(input: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(input, key, {
+    const { payload } = await jwtVerify<SessionPayload>(input, key, {
       algorithms: ["HS256"],
     });
     return payload;

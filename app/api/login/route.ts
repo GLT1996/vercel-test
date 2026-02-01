@@ -15,7 +15,10 @@ export async function POST(request: NextRequest) {
     if (user && (await bcrypt.compare(password, user.password))) {
       // 1. Create the session
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
-      const session = await encrypt({ user: { username }, expires });
+      const session = await encrypt({
+        user: { id: user.id, username: user.username },
+        expires,
+      });
 
       // 2. Create the response and set the cookie
       const response = NextResponse.json({ success: true }, { status: 200 });

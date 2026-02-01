@@ -1,24 +1,50 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { decrypt } from "@/lib/session";
 
-export function middleware(request: NextRequest) {
+// 1. Specify protected and public routes
+const protectedRoutes = ["/ai-qa"];
+const publicRoutes = ["/login"];
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Paths that require authentication
-  if (pathname.startsWith("/ai-qa") || pathname.startsWith("/api/ai-qa")) {
-    const authToken = request.cookies.get("auth_token");
+  // 2. Check if the route is protected
+  const isProtectedRoute =
+    protectedRoutes.some((prefix) => pathname.startsWith(prefix)) ||
+    pathname.startsWith("/api/ai-qa");
 
-    if (!authToken || authToken.value !== "valid_session") {
-      // If it's an API call, return 401
+  if (isProtectedRoute) {
+    // 3. Get the session cookie
+    const cookie = request.cookies.get("session");
+
+    // 4. Redirect to login if cookie is missing
+    if (!cookie?.value) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
       }
+      const absoluteURL = new URL("/login", request.nextUrl.origin);
+      absoluteURL.searchParams.set("from", pathname);
+      return NextResponse.redirect(absoluteURL.toString());
+    }
 
-      // Otherwise redirect to login page
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("from", pathname);
-      return NextResponse.redirect(url);
+    // 5. Verify the session
+    try {
+      const session = await decrypt(cookie.value);
+      if (!session?.user) {
+        throw new Error("Invalid session");
+      }
+      // 6. If session is valid, continue
+      return NextResponse.next();
+    } catch (err) {
+      // 7. If session is invalid, delete the cookie and redirect to login
+      console.log("Invalid session, redirecting to login.");
+      const response = NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+      response.cookies.delete("session");
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+      return response;
     }
   }
 
@@ -27,8 +53,13 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/ai-qa/:path*",
-    "/api/ai-qa/:path*"
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
 

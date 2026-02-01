@@ -1,13 +1,18 @@
 import { encrypt } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { username, password } = body;
 
-    // IMPORTANT: Replace with your actual user authentication logic (e.g., from a database)
-    if (username === "admin" && password === "password") {
+    const user = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (user && (await bcrypt.compare(password, user.password))) {
       // 1. Create the session
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
       const session = await encrypt({ user: { username }, expires });

@@ -11,7 +11,14 @@ export default function AIQAPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [showKb, setShowKb] = useState(false);
-  const [chunks, setChunks] = useState<any[]>([]);
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+
+  interface Chunk {
+    id: string;
+    createdAt: string;
+    content: string;
+    metadata?: object;
+  }
 
   const fetchChunks = async () => {
     try {

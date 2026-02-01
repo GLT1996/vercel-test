@@ -4,7 +4,6 @@ import { decrypt } from "@/lib/session";
 
 // 1. Specify protected and public routes
 const protectedRoutes = ["/ai-qa"];
-const publicRoutes = ["/login"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -36,7 +35,7 @@ export async function middleware(request: NextRequest) {
       }
       // 6. If session is valid, continue
       return NextResponse.next();
-    } catch (err) {
+    } catch {
       // 7. If session is invalid, delete the cookie and redirect to login
       console.log("Invalid session, redirecting to login.");
       const response = NextResponse.redirect(new URL("/login", request.nextUrl.origin));

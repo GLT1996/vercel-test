@@ -32,7 +32,7 @@ export default function DataConverter() {
         default:
           return;
       }
-    } catch (e) {
+    } catch {
       setValues({ dec: 'Error', hex: 'Error', bin: 'Error' });
       return;
     }

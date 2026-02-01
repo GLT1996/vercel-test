@@ -29,8 +29,8 @@ export default function Base64Page() {
     try {
       setError(null);
       setOutput(encodeBase64Utf8(input));
-    } catch (e: any) {
-      setError(e?.message ?? "编码失败");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "编码失败");
     }
   };
 
@@ -38,8 +38,8 @@ export default function Base64Page() {
     try {
       setError(null);
       setOutput(decodeBase64Utf8(input));
-    } catch (e: any) {
-      setError(e?.message ?? "解码失败：请确认输入是合法 Base64");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "解码失败：请确认输入是合法 Base64");
     }
   };
 

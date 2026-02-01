@@ -37,8 +37,8 @@ export default function BtcWalletGenerator() {
       setPrivateKey(bytesToHex(pkBytes));
       setPublicKey(bytesToHex(newPublicKeyBytes));
       setWalletAddress(address);
-    } catch (e: any) {
-      setError(`Error deriving keys/address: ${e.message}`);
+    } catch (e: unknown) {
+      setError(`Error deriving keys/address: ${e instanceof Error ? e.message : String(e)}`);
       setPrivateKey(null);
       setPublicKey(null);
       setWalletAddress(null);
@@ -66,8 +66,8 @@ export default function BtcWalletGenerator() {
     try {
       const pkBytes = hexToBytes(inputPrivateKey);
       deriveKeysAndAddress(pkBytes);
-    } catch (e: any) {
-      setError(`Invalid private key: ${e.message}`);
+    } catch (e: unknown) {
+      setError(`Invalid private key: ${e instanceof Error ? e.message : String(e)}`);
       setPrivateKey(null);
       setPublicKey(null);
       setWalletAddress(null);

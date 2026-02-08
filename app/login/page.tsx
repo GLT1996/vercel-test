@@ -2,6 +2,11 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  loadCaptchaEnginge,
+  LoadCanvasTemplate,
+  validateCaptcha,
+} from "react-simple-captcha";
 
 type User = {
   id: string;
@@ -37,6 +42,7 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [userCaptcha, setUserCaptcha] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -47,6 +53,10 @@ function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
+
+  useEffect(() => {
+    loadCaptchaEnginge(6);
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -96,6 +106,13 @@ function Login() {
       return;
     }
 
+    if (!validateCaptcha(userCaptcha)) {
+      setError("图形验证码不正确");
+      loadCaptchaEnginge(6);
+      setUserCaptcha("");
+      return;
+    }
+
     try {
       const res = await fetch("/api/login", {
         method: "POST",
@@ -114,9 +131,13 @@ function Login() {
       } else {
         const data = await res.json();
         setError(data.message || "登录失败");
+        loadCaptchaEnginge(6);
+        setUserCaptcha("");
       }
     } catch {
       setError("发生错误，请稍后再试");
+      loadCaptchaEnginge(6);
+      setUserCaptcha("");
     }
   };
 
@@ -164,6 +185,13 @@ function Login() {
       return;
     }
 
+    if (!validateCaptcha(userCaptcha)) {
+      setError("图形验证码不正确");
+      loadCaptchaEnginge(6);
+      setUserCaptcha("");
+      return;
+    }
+
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -178,11 +206,17 @@ function Login() {
         setUsername(username);
         setPassword("");
         setError("");
+        loadCaptchaEnginge(6);
+        setUserCaptcha("");
       } else {
         setError(data.message || "注册失败");
+        loadCaptchaEnginge(6);
+        setUserCaptcha("");
       }
     } catch {
       setError("注册时发生错误");
+      loadCaptchaEnginge(6);
+      setUserCaptcha("");
     }
   };
 
@@ -312,6 +346,24 @@ function Login() {
                 className="mt-1 w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
               />
             </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                图形验证码
+              </label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="text"
+                  placeholder="输入图形验证码"
+                  value={userCaptcha}
+                  onChange={(e) => setUserCaptcha(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
+                />
+                <div className="p-2 border rounded-md bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700">
+                  <LoadCanvasTemplate />
+                </div>
+              </div>
+            </div>
             {error && (
               <p className="text-red-500 text-sm text-center">{error}</p>
             )}
@@ -357,6 +409,24 @@ function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                图形验证码
+              </label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="text"
+                  placeholder="输入图形验证码"
+                  value={userCaptcha}
+                  onChange={(e) => setUserCaptcha(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
+                />
+                <div className="p-2 border rounded-md bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700">
+                  <LoadCanvasTemplate />
+                </div>
+              </div>
             </div>
             {error && (
               <p className="text-red-500 text-sm text-center">{error}</p>

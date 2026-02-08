@@ -8,3 +8,4 @@ node_modules/
 .env.*.local
 prisma/dev.db-journal
 /.idea
+/next-env.d.ts

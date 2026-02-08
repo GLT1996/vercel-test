@@ -6,6 +6,7 @@ export interface SessionPayload extends JWTPayload {
     username: string;
   };
   expires?: Date;
+  captcha?: string;
 }
 
 const secretKey = process.env.JWT_SECRET;
@@ -19,7 +20,7 @@ export async function encrypt(payload: SessionPayload) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("1d")
+    .setExpirationTime(payload.expires ? Math.floor(payload.expires.getTime() / 1000) : "1d")
     .sign(key);
 }
 
@@ -36,4 +37,3 @@ export async function decrypt(input: string): Promise<SessionPayload | null> {
     return null;
   }
 }
-

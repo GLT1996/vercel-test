@@ -1,4 +1,4 @@
-import { encrypt } from "@/lib/session";
+import { encrypt, decrypt } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
@@ -6,7 +6,18 @@ import bcrypt from "bcrypt";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, password } = body;
+    const { username, password, captcha } = body;
+
+    // Validate Captcha
+    const captchaToken = request.cookies.get("captcha_token")?.value;
+    if (!captchaToken) {
+      return NextResponse.json({ message: "请刷新验证码" }, { status: 400 });
+    }
+
+    const payload = await decrypt(captchaToken);
+    if (!payload || !payload.captcha || payload.captcha.toLowerCase() !== captcha.toLowerCase()) {
+      return NextResponse.json({ message: "图形验证码错误或已过期" }, { status: 400 });
+    }
 
     const user = await prisma.user.findUnique({
       where: { username },

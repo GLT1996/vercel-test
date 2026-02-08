@@ -2,11 +2,6 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  loadCaptchaEnginge,
-  LoadCanvasTemplate,
-  validateCaptcha,
-} from "react-simple-captcha";
 
 type User = {
   id: string;
@@ -43,6 +38,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [userCaptcha, setUserCaptcha] = useState("");
+  const [captchaUrl, setCaptchaUrl] = useState("/api/captcha"); // Initialize with default URL
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
@@ -54,9 +50,10 @@ function Login() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
 
-  useEffect(() => {
-    loadCaptchaEnginge(6);
-  }, []);
+  const refreshCaptcha = () => {
+    setCaptchaUrl(`/api/captcha?t=${Date.now()}`);
+    setUserCaptcha("");
+  };
 
   const fetchUsers = async () => {
     try {
@@ -106,10 +103,8 @@ function Login() {
       return;
     }
 
-    if (!validateCaptcha(userCaptcha)) {
-      setError("图形验证码不正确");
-      loadCaptchaEnginge(6);
-      setUserCaptcha("");
+    if (!userCaptcha) {
+      setError("请输入图形验证码");
       return;
     }
 
@@ -117,7 +112,7 @@ function Login() {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, captcha: userCaptcha }),
       });
 
       if (res.ok) {
@@ -131,12 +126,12 @@ function Login() {
       } else {
         const data = await res.json();
         setError(data.message || "登录失败");
-        loadCaptchaEnginge(6);
+        refreshCaptcha();
         setUserCaptcha("");
       }
     } catch {
       setError("发生错误，请稍后再试");
-      loadCaptchaEnginge(6);
+      refreshCaptcha();
       setUserCaptcha("");
     }
   };
@@ -185,10 +180,8 @@ function Login() {
       return;
     }
 
-    if (!validateCaptcha(userCaptcha)) {
-      setError("图形验证码不正确");
-      loadCaptchaEnginge(6);
-      setUserCaptcha("");
+    if (!userCaptcha) {
+      setError("请输入图形验证码");
       return;
     }
 
@@ -196,7 +189,7 @@ function Login() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password, verificationCode }),
+        body: JSON.stringify({ username, email, password, verificationCode, captcha: userCaptcha }),
       });
 
       const data = await res.json();
@@ -206,16 +199,16 @@ function Login() {
         setUsername(username);
         setPassword("");
         setError("");
-        loadCaptchaEnginge(6);
+        refreshCaptcha();
         setUserCaptcha("");
       } else {
         setError(data.message || "注册失败");
-        loadCaptchaEnginge(6);
+        refreshCaptcha();
         setUserCaptcha("");
       }
     } catch {
       setError("注册时发生错误");
-      loadCaptchaEnginge(6);
+      refreshCaptcha();
       setUserCaptcha("");
     }
   };
@@ -359,8 +352,8 @@ function Login() {
                   required
                   className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
                 />
-                <div className="p-2 border rounded-md bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700">
-                  <LoadCanvasTemplate />
+                <div className="cursor-pointer" onClick={refreshCaptcha} title="点击刷新验证码">
+                  <img src={captchaUrl} alt="验证码" className="h-[42px] rounded-md border border-zinc-300 dark:border-zinc-700" />
                 </div>
               </div>
             </div>
@@ -423,8 +416,8 @@ function Login() {
                   required
                   className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700"
                 />
-                <div className="p-2 border rounded-md bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700">
-                  <LoadCanvasTemplate />
+                <div className="cursor-pointer" onClick={refreshCaptcha} title="点击刷新验证码">
+                  <img src={captchaUrl} alt="验证码" className="h-[42px] rounded-md border border-zinc-300 dark:border-zinc-700" />
                 </div>
               </div>
             </div>

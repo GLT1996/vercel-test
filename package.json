@@ -42,7 +42,9 @@
     "react-dom": "19.2.3",
     "react-simple-captcha": "^9.3.1",
     "setimmediate": "^1.0.5",
-    "svg-captcha": "^1.4.0"
+    "svg-captcha": "^1.4.0",
+    "@monaco-editor/react": "^4.7.0",
+    "monaco-editor": "^0.52.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

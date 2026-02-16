@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import MonacoTextarea from "@/app/components/MonacoTextarea";
 
 export default function DataFilter() {
   const [sourceData, setSourceData] = useState("");
@@ -32,14 +33,16 @@ export default function DataFilter() {
       return /^[-+]?\d+(?:\.\d+)?$/.test(t);
     };
 
-    // 先计算哪些被过滤掉（来自“过滤数据” + 可选的“数字行”）
+    // 先计算哪些被过滤掉（来自“过滤数据” + 可选的“非纯数字行”）
     const linesFilteredOut = sourceLines.filter((line) => {
       if (filterLinesSet.has(line)) return true;
       if (filterNumericOnly && !isNumericOnly(line)) return true;
       return false;
     });
 
-    const linesKept = sourceLines.filter((line) => !linesFilteredOut.includes(line));
+    // 用 Set 避免 O(n^2)
+    const filteredOutSet = new Set(linesFilteredOut);
+    const linesKept = sourceLines.filter((line) => !filteredOutSet.has(line));
 
     const deduplicatedResult = [...new Set(linesKept)];
     setResult(deduplicatedResult.join("\n"));
@@ -85,34 +88,22 @@ export default function DataFilter() {
       <h1 className="text-2xl font-bold mb-4 text-center">数据去重工具</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="source-data"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            源数据 (每行一条)
-          </label>
-          <textarea
+          <MonacoTextarea
             id="source-data"
+            label="源数据 (每行一条)"
             rows={10}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             value={sourceData}
-            onChange={(e) => setSourceData(e.target.value)}
+            onChangeAction={setSourceData}
             placeholder="在此输入源数据"
           />
         </div>
         <div>
-          <label
-            htmlFor="filter-data"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            过滤数据 (每行一条)
-          </label>
-          <textarea
+          <MonacoTextarea
             id="filter-data"
+            label="过滤数据 (每行一条)"
             rows={10}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
             value={filterData}
-            onChange={(e) => setFilterData(e.target.value)}
+            onChangeAction={setFilterData}
             placeholder="在此输入要过滤掉的数据"
           />
 
@@ -123,10 +114,11 @@ export default function DataFilter() {
               checked={filterNumericOnly}
               onChange={(e) => setFilterNumericOnly(e.target.checked)}
             />
-            过滤掉源数据中“非纯数字”的行（计入过滤数据数量）
+            仅保留源数据中“纯数字”的行（过滤掉非纯数字行，计入过滤数据数量）
           </label>
         </div>
       </div>
+
       <div className="mt-4 flex justify-center gap-4">
         <button
           onClick={handleFilter}
@@ -141,17 +133,16 @@ export default function DataFilter() {
           导出为 Excel
         </button>
       </div>
+
       <div className="mt-4">
-        <label htmlFor="result-data" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          结果
-        </label>
-        <textarea
+        <MonacoTextarea
           id="result-data"
+          label="结果"
           rows={10}
-          readOnly
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
           value={result}
+          onChangeAction={() => {}}
           placeholder="去重结果将显示在这里"
+          readOnly
         />
         <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           源数据: {stats.sourceCount} 条 | 过滤数据: {stats.filterCount} 条 | 因重复移除: {stats.deduplicatedCount} 条 | 最终结果: {stats.resultCount} 条

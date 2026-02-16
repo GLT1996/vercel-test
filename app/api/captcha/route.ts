@@ -1,50 +1,78 @@
 import { NextResponse } from "next/server";
-import svgCaptcha from "svg-captcha";
 import { encrypt } from "@/lib/session";
-import path from "path";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs"; // 防止在 Edge Runtime 运行导致 node_modules 资源/文件系统不可用
+export const runtime = "nodejs";
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function escapeXml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function generateMathCaptchaSvg(opts?: {
+  width?: number;
+  height?: number;
+  background?: string;
+  noise?: number;
+}) {
+  const width = opts?.width ?? 120;
+  const height = opts?.height ?? 40;
+  const background = opts?.background ?? "#f0f0f0";
+  const noise = opts?.noise ?? 6;
+
+  const a = randomInt(1, 9);
+  const b = randomInt(1, 9);
+  const text = String(a + b);
+  const equation = `${a} + ${b} = ?`;
+
+  // 简单干扰线
+  const lines: string[] = [];
+  for (let i = 0; i < noise; i++) {
+    const x1 = randomInt(0, width);
+    const y1 = randomInt(0, height);
+    const x2 = randomInt(0, width);
+    const y2 = randomInt(0, height);
+    const stroke = `rgba(${randomInt(0, 120)},${randomInt(0, 120)},${randomInt(
+      0,
+      120
+    )},0.35)`;
+    lines.push(
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="1"/>`
+    );
+  }
+
+  // 重要：使用系统字体，不读取任何本地 .ttf 文件
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" fill="${escapeXml(background)}" />
+  ${lines.join("\n  ")}
+  <text x="10" y="26"
+        font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial"
+        font-size="18" font-weight="700" fill="#111">
+    ${escapeXml(equation)}
+  </text>
+</svg>`;
+
+  return { text, data: svg };
+}
 
 export async function GET() {
   try {
-    console.log("Generating captcha...");
-
-    // 尝试加载字体，优先使用 public 下的，备选 node_modules
-    const possiblePaths = [
-        path.join(process.cwd(), 'public', 'fonts', 'Comismsh.ttf'),
-        path.resolve(process.cwd(), 'node_modules', 'svg-captcha', 'fonts', 'Comismsh.ttf'),
-    ];
-
-    let fontLoaded = false;
-    for (const p of possiblePaths) {
-        try {
-            svgCaptcha.loadFont(p);
-            console.log("Font loaded from:", p);
-            fontLoaded = true;
-            break;
-        } catch (e) {
-            // Ignore error and try next path
-        }
-    }
-
-    if (!fontLoaded) {
-         console.warn("Failed to load captcha font from explicit paths. Fallback to default (which might fail).");
-    }
-
-    // 改用数学验证码：一般不依赖外部字体文件，规避 Comismsh.ttf 读取问题
-    const captcha = svgCaptcha.createMathExpr({
-      mathMin: 1,
-      mathMax: 9,
-      mathOperator: "+", // 固定为加法，避免更复杂表达式带来的渲染差异
-      noise: 3,
-      color: true,
-      width: 120,
+    const captcha = generateMathCaptchaSvg({
+      width: 140,
       height: 40,
       background: "#f0f0f0",
+      noise: 6,
     });
-    console.log("Generated captcha text:", captcha.text);
-    // Create a JWT with the captcha text, expiring in 5 minutes
+
     const expires = new Date(Date.now() + 5 * 60 * 1000);
     const token = await encrypt({ captcha: captcha.text, expires });
 
@@ -56,7 +84,6 @@ export async function GET() {
       },
     });
 
-    // Set the token as an HTTP-only cookie
     response.cookies.set("captcha_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -70,15 +97,10 @@ export async function GET() {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("Error generating captcha:", error);
 
-    // 明确提示：如果仍然是 fonts/Comismsh.ttf 的 ENOENT，说明运行环境仍在触发字体文件读取
     return NextResponse.json(
       {
         message: "Internal Server Error",
         error: msg,
-        hint:
-          msg.includes("Comismsh.ttf") || msg.includes("svg-captcha\\fonts")
-            ? "当前环境仍触发 svg-captcha 字体文件读取。建议：1) 确认该路由仅在 Node.js runtime；2) 升级/降级 svg-captcha；3) 换用不依赖本地字体文件的验证码实现（例如生成 PNG/base64 或自行渲染 SVG）。"
-            : undefined,
       },
       { status: 500 }
     );

@@ -5,6 +5,7 @@ export default function DataFilter() {
   const [sourceData, setSourceData] = useState("");
   const [filterData, setFilterData] = useState("");
   const [result, setResult] = useState("");
+  const [filterNumericOnly, setFilterNumericOnly] = useState(false);
   const [stats, setStats] = useState({
     sourceCount: 0,
     filterCount: 0,
@@ -13,20 +14,40 @@ export default function DataFilter() {
   });
 
   const handleFilter = () => {
-    const sourceLines = sourceData.split("\n").filter(line => line.trim() !== "");
-    const filterLines = filterData.split("\n").filter(line => line.trim() !== "");
+    const sourceLines = sourceData
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim() !== "");
+
+    const filterLines = filterData
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim() !== "");
+
     const filterLinesSet = new Set(filterLines);
-    
-    const linesKept = sourceLines.filter(line => !filterLinesSet.has(line));
-    const linesFilteredOut = sourceLines.filter(line => filterLinesSet.has(line));
+
+    const isNumericOnly = (line: string) => {
+      const t = line.trim();
+      // 支持：整数/小数/正负号。空字符串已在上面过滤。
+      return /^[-+]?\d+(?:\.\d+)?$/.test(t);
+    };
+
+    // 先计算哪些被过滤掉（来自“过滤数据” + 可选的“数字行”）
+    const linesFilteredOut = sourceLines.filter((line) => {
+      if (filterLinesSet.has(line)) return true;
+      if (filterNumericOnly && !isNumericOnly(line)) return true;
+      return false;
+    });
+
+    const linesKept = sourceLines.filter((line) => !linesFilteredOut.includes(line));
 
     const deduplicatedResult = [...new Set(linesKept)];
     setResult(deduplicatedResult.join("\n"));
     setStats({
-        sourceCount: sourceLines.length,
-        filterCount: linesFilteredOut.length,
-        deduplicatedCount: linesKept.length - deduplicatedResult.length, // Calculate new stat
-        resultCount: deduplicatedResult.length,
+      sourceCount: sourceLines.length,
+      filterCount: linesFilteredOut.length,
+      deduplicatedCount: linesKept.length - deduplicatedResult.length, // Calculate new stat
+      resultCount: deduplicatedResult.length,
     });
   };
 
@@ -64,7 +85,10 @@ export default function DataFilter() {
       <h1 className="text-2xl font-bold mb-4 text-center">数据去重工具</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="source-data" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="source-data"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             源数据 (每行一条)
           </label>
           <textarea
@@ -77,7 +101,10 @@ export default function DataFilter() {
           />
         </div>
         <div>
-          <label htmlFor="filter-data" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label
+            htmlFor="filter-data"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             过滤数据 (每行一条)
           </label>
           <textarea
@@ -88,6 +115,16 @@ export default function DataFilter() {
             onChange={(e) => setFilterData(e.target.value)}
             placeholder="在此输入要过滤掉的数据"
           />
+
+          <label className="mt-2 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={filterNumericOnly}
+              onChange={(e) => setFilterNumericOnly(e.target.checked)}
+            />
+            过滤掉源数据中“非纯数字”的行（计入过滤数据数量）
+          </label>
         </div>
       </div>
       <div className="mt-4 flex justify-center gap-4">

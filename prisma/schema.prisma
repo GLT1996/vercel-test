@@ -31,3 +31,14 @@ model VerificationToken {
   token   String   @unique
   expires DateTime
 }
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  room      String
+  nickname  String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([room, createdAt])
+}
+

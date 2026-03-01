@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ChatMsg {
   id: string;
@@ -25,11 +25,10 @@ export default function ChatRoom() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [onlineHint, setOnlineHint] = useState(true); // polling alive
+  const [connected, setConnected] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const latestTimestampRef = useRef<string | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   // --- join ---
   const handleJoin = () => {
@@ -45,44 +44,49 @@ export default function ChatRoom() {
     setJoined(true);
   };
 
-  // --- fetch messages ---
-  const fetchMessages = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({ room: token.trim() });
-      if (latestTimestampRef.current) {
-        params.set("after", latestTimestampRef.current);
-      }
-      const res = await fetch(`/api/chat/messages?${params.toString()}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const newMsgs: ChatMsg[] = data.messages ?? [];
-      if (newMsgs.length > 0) {
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id));
-          const filtered = newMsgs.filter((m) => !existingIds.has(m.id));
-          return [...prev, ...filtered];
-        });
-        latestTimestampRef.current = newMsgs[newMsgs.length - 1].createdAt;
-      }
-      setOnlineHint(true);
-    } catch {
-      setOnlineHint(false);
-    }
-  }, [token]);
-
-  // --- start polling when joined ---
+  // --- SSE connection ---
   useEffect(() => {
     if (!joined) return;
 
-    // initial full load
-    fetchMessages();
+    const room = token.trim();
+    const url = `/api/chat/stream?room=${encodeURIComponent(room)}`;
+    const es = new EventSource(url);
+    eventSourceRef.current = es;
 
-    pollingRef.current = setInterval(fetchMessages, 2000);
+    const seenIds = new Set<string>();
+
+    es.onopen = () => {
+      setConnected(true);
+    };
+
+    // 默认 "message" 事件 => 新消息
+    es.onmessage = (event) => {
+      try {
+        const msg: ChatMsg = JSON.parse(event.data);
+        if (seenIds.has(msg.id)) return; // 去重
+        seenIds.add(msg.id);
+        setMessages((prev) => [...prev, msg]);
+      } catch {
+        // ignore
+      }
+    };
+
+    es.onerror = () => {
+      setConnected(false);
+      // EventSource 会自动重连，无需手动处理
+    };
+
+    // 收到 history-done 事件（可选用途，这里仅做标记）
+    es.addEventListener("history-done", () => {
+      // 历史消息已全部加载完毕
+    });
 
     return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      es.close();
+      eventSourceRef.current = null;
+      setConnected(false);
     };
-  }, [joined, fetchMessages]);
+  }, [joined, token]);
 
   // --- auto scroll ---
   useEffect(() => {
@@ -106,8 +110,7 @@ export default function ChatRoom() {
       });
       if (res.ok) {
         setInput("");
-        // immediately fetch to show the new message
-        await fetchMessages();
+        // 新消息会通过 SSE 自动推送过来，无需手动 fetch
       }
     } catch {
       // ignore
@@ -125,10 +128,13 @@ export default function ChatRoom() {
 
   // --- leave ---
   const handleLeave = () => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
     setJoined(false);
     setMessages([]);
-    latestTimestampRef.current = null;
+    setConnected(false);
   };
 
   // ======================== JOIN SCREEN ========================
@@ -193,8 +199,10 @@ export default function ChatRoom() {
           </h1>
           <p className="text-xs text-gray-500">
             昵称：{nickname.trim()}
-            {!onlineHint && (
-              <span className="ml-2 text-red-500">● 连接异常</span>
+            {connected ? (
+              <span className="ml-2 text-green-500">● SSE 已连接</span>
+            ) : (
+              <span className="ml-2 text-red-500">● 连接中…</span>
             )}
           </p>
         </div>

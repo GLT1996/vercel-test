@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { chatSSEBus } from "@/lib/chatSSE";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,6 +25,14 @@ export async function POST(req: NextRequest) {
         nickname: nickname.trim(),
         content: content.trim(),
       },
+    });
+
+    // 通知同房间所有 SSE 订阅者
+    chatSSEBus.notify(room.trim(), {
+      id: message.id,
+      nickname: message.nickname,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
     });
 
     return NextResponse.json({ ok: true, message });

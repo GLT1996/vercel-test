@@ -1,10 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { PDFParse } from "pdf-parse";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 
 export const runtime = "nodejs";
+
+class MinimalDOMMatrix {
+  a = 1;
+  b = 0;
+  c = 0;
+  d = 1;
+  e = 0;
+  f = 0;
+
+  constructor(init?: number[]) {
+    if (Array.isArray(init) && init.length >= 6) {
+      [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+    }
+  }
+
+  multiplySelf(other: { a: number; b: number; c: number; d: number; e: number; f: number }) {
+    const a = this.a * other.a + this.c * other.b;
+    const b = this.b * other.a + this.d * other.b;
+    const c = this.a * other.c + this.c * other.d;
+    const d = this.b * other.c + this.d * other.d;
+    const e = this.a * other.e + this.c * other.f + this.e;
+    const f = this.b * other.e + this.d * other.f + this.f;
+    this.a = a;
+    this.b = b;
+    this.c = c;
+    this.d = d;
+    this.e = e;
+    this.f = f;
+    return this;
+  }
+
+  preMultiplySelf(other: { a: number; b: number; c: number; d: number; e: number; f: number }) {
+    const matrix = new MinimalDOMMatrix([other.a, other.b, other.c, other.d, other.e, other.f]);
+    matrix.multiplySelf(this);
+    this.a = matrix.a;
+    this.b = matrix.b;
+    this.c = matrix.c;
+    this.d = matrix.d;
+    this.e = matrix.e;
+    this.f = matrix.f;
+    return this;
+  }
+
+  translate(tx = 0, ty = 0) {
+    return this.multiplySelf(new MinimalDOMMatrix([1, 0, 0, 1, tx, ty]));
+  }
+
+  scale(scaleX = 1, scaleY = scaleX) {
+    return this.multiplySelf(new MinimalDOMMatrix([scaleX, 0, 0, scaleY, 0, 0]));
+  }
+
+  invertSelf() {
+    const det = this.a * this.d - this.b * this.c;
+    if (!det) {
+      this.a = 1;
+      this.b = 0;
+      this.c = 0;
+      this.d = 1;
+      this.e = 0;
+      this.f = 0;
+      return this;
+    }
+
+    const a = this.d / det;
+    const b = -this.b / det;
+    const c = -this.c / det;
+    const d = this.a / det;
+    const e = (this.c * this.f - this.d * this.e) / det;
+    const f = (this.b * this.e - this.a * this.f) / det;
+    this.a = a;
+    this.b = b;
+    this.c = c;
+    this.d = d;
+    this.e = e;
+    this.f = f;
+    return this;
+  }
+}
+
+if (typeof globalThis.DOMMatrix === "undefined") {
+  globalThis.DOMMatrix = MinimalDOMMatrix as typeof globalThis.DOMMatrix;
+}
 
 // pdf-parse/pdf.js needs a dedicated worker script for text extraction.
 // In Next.js dev, bundling can make the library infer a transient
@@ -19,8 +100,6 @@ const pdfWorkerPath = path.join(
   "worker",
   "pdf.worker.mjs"
 );
-
-PDFParse.setWorker(pathToFileURL(pdfWorkerPath).href);
 
 type ErrorCode =
   | "NO_FILE"
@@ -82,6 +161,8 @@ function buildParagraphs(text: string) {
 }
 
 async function parsePdfText(buffer: Buffer) {
+  const { PDFParse } = await import("pdf-parse");
+  PDFParse.setWorker(pathToFileURL(pdfWorkerPath).href);
   const parser = new PDFParse({ data: buffer });
 
   try {

@@ -29,6 +29,7 @@
     "bcryptjs": "^2.4.3",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
+    "docx": "^9.6.0",
     "dotenv": "^17.2.3",
     "ethereum-cryptography": "^3.2.0",
     "exceljs": "^4.4.0",

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>应用概览</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+
+      :root {
+        --text: #14213d;
+        --muted: #5c677d;
+        --accent: #0b5fff;
+        --line: #d9e2f2;
+        --bg: #f7f9fc;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: white;
+        color: var(--text);
+        font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", sans-serif;
+      }
+
+      body {
+        font-size: 11px;
+        line-height: 1.38;
+      }
+
+      .page {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 12mm;
+      }
+
+      .title {
+        margin: 0 0 2mm;
+        font-size: 24px;
+        line-height: 1.05;
+      }
+
+      .subtitle {
+        margin: 0 0 5mm;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .section {
+        margin-bottom: 4.5mm;
+      }
+
+      .section h2 {
+        margin: 0 0 1.8mm;
+        padding-bottom: 1.2mm;
+        border-bottom: 1px solid var(--line);
+        color: var(--accent);
+        font-size: 12px;
+      }
+
+      p {
+        margin: 0 0 1.8mm;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 4.6mm;
+      }
+
+      li {
+        margin: 0 0 1.6mm;
+      }
+
+      .card {
+        padding: 3.5mm 4mm;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+
+      .small {
+        color: var(--muted);
+      }
+
+      .steps li {
+        margin-bottom: 1.8mm;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section>
+        <h1 class="title">应用概览</h1>
+        <p class="subtitle">仓库：my-nextjs-app</p>
+
+        <div class="section">
+          <h2>它是什么</h2>
+          <p>这是一个基于 Next.js 16 的 Web 应用，把一组浏览器端小工具和若干服务端能力整合在同一个站点里。</p>
+          <p>从仓库结构看，它更像一个“个人/内部工具箱”，而不是单一用途产品。</p>
+        </div>
+
+        <div class="section">
+          <h2>面向谁</h2>
+          <p>主要面向开发者或技术运营人员，他们需要一个轻量的网页入口来处理文本/数据工具、发送邮件、做受保护的 AI 知识库问答，以及进行简单实时沟通。</p>
+        </div>
+
+        <div class="section">
+          <h2>它做什么</h2>
+          <ul>
+            <li>提供 JSON 格式化、Base64、文本对比、时间换算、数据过滤、EML 查看、Brainfuck、计算器等工具页。</li>
+            <li>支持上传 TXT、MD、PDF 文档，建立知识库并通过 AI 问答接口检索回答。</li>
+            <li>提供登录、注册、邮箱验证码、图形验证码、JWT 会话，以及管理员用户管理能力。</li>
+            <li>提供基于房间 Token 的实时聊天室，消息入库后通过 SSE 推送到在线客户端。</li>
+            <li>支持通过 Gmail SMTP 发信，包含基础校验、附件处理和内存级限流。</li>
+            <li>提供定时邮件接口，可附加 BTC 快照与价格图表。</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2>如何运行</h2>
+          <ul class="steps">
+            <li>准备 `.env`：至少需要 `PRISMA_DATABASE_URL` 和长度不少于 32 的 `JWT_SECRET`。</li>
+            <li>如需 AI 功能，补充 `GOOGLE_API_KEY` 或 `OPENAI_API_KEY`。</li>
+            <li>如需邮件功能，补充 `GMAIL_USER` 与 `GMAIL_APP_PASSWORD`。</li>
+            <li>安装依赖：`npm install`</li>
+            <li>初始化 Prisma：`npm run prisma:generate` 与 `npm run prisma:migrate`</li>
+            <li>启动开发环境：`npm run dev`，然后访问 `http://localhost:3000`</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <div class="section card">
+          <h2>如何工作</h2>
+          <p>前端页面位于 `app/*`，API 路由位于 `app/api/*`。`middleware.ts` 会保护 `/ai-qa` 与 `/api/ai-qa`，通过 `session` Cookie 解密 JWT 判断是否已登录。</p>
+          <p>服务端通过 Prisma 连接数据库，当前 schema 中可见 `User`、`VerificationToken`、`ChatMessage`、`DocumentChunk` 等表。</p>
+          <p>AI 入库流：上传文件 -> 解析 PDF/文本 -> 分块 -> 生成 embedding -> 存入 `DocumentChunk`。</p>
+          <p>AI 问答流：对问题做 embedding -> 与已存向量做余弦相似度排序 -> 拼上下文 -> 调用 Gemini 或 OpenAI 模型生成回答。</p>
+          <p>聊天流：前端 POST 消息 -> Prisma 入库 -> 进程内 SSE bus 通知 -> `/api/chat/stream` 推送历史和新消息。</p>
+          <p>邮件流：页面或定时任务调用 API -> 参数校验与限流 -> Nodemailer 使用 Gmail SMTP 发信。</p>
+        </div>
+
+        <div class="section">
+          <h2>仓库中未明确找到</h2>
+          <ul>
+            <li>统一且完整的 `.env.example` 示例文件。</li>
+            <li>官方定义的产品名称、目标用户文档或产品定位说明。</li>
+            <li>开箱即用的数据库种子脚本。</li>
+          </ul>
+        </div>
+
+        <div class="section">
+          <h2>依据说明</h2>
+          <p class="small">以上内容仅基于仓库可见证据整理，主要来自 `app/` 页面与 API、`lib/` 辅助模块、`prisma/schema.prisma`、`middleware.ts`、`package.json` 与 `README.md`。</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

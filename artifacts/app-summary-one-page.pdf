@@ -1,0 +1,259 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>
+endobj
+4 0 obj
+<< /Length 4303 >>
+stream
+BT
+/F1 22 Tf
+1 0 0 1 42 800 Tm
+(App Summary) Tj
+ET
+BT
+/F3 10 Tf
+1 0 0 1 42 776 Tm
+(Repo: my-nextjs-app) Tj
+ET
+BT
+/F2 13 Tf
+1 0 0 1 42 754 Tm
+(What It Is) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 738 Tm
+(A Next.js 16 web app that bundles browser-based utilities with a few server-backed) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 725 Tm
+(workflows, including AI Q&A, email sending, user auth, and a real-time chat room.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 707 Tm
+(The repo reads like an internal toolbox or personal utility hub rather than a) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 694 Tm
+(single-purpose product.) Tj
+ET
+BT
+/F2 13 Tf
+1 0 0 1 42 676 Tm
+(Who It Is For) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 660 Tm
+(Primary persona: developers or technical operators who need a lightweight web hub for) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 647 Tm
+(data/text utilities, quick internal workflows, and a protected AI knowledge base.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 634 Tm
+(Persona is inferred from the route set and admin/auth features.) Tj
+ET
+BT
+/F2 13 Tf
+1 0 0 1 42 616 Tm
+(What It Does) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 600 Tm
+(- Provides utility pages for JSON formatting, Base64, text diff, time conversion,) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 587 Tm
+(data filtering, EML viewing, Brainfuck, and calculators.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 572 Tm
+(- Supports AI Q&A over uploaded TXT, MD, and PDF files using chunking, embeddings,) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 559 Tm
+(retrieval, and an LLM-backed answer route.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 544 Tm
+(- Offers login and registration flows with email verification, captcha, JWT cookie) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 531 Tm
+(sessions, and admin-only user management.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 516 Tm
+(- Includes a token-based real-time chat room backed by persisted messages plus) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 503 Tm
+(Server-Sent Events for live updates.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 488 Tm
+(- Sends email through Gmail SMTP with validation, attachment handling, and in-memory) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 475 Tm
+(rate limiting.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 460 Tm
+(- Runs a daily mail cron endpoint that appends a BTC snapshot and chart when) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 447 Tm
+(configured.) Tj
+ET
+BT
+/F2 13 Tf
+1 0 0 1 42 432 Tm
+(How It Works) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 416 Tm
+(App Router pages under app/* render the UI and call route handlers under app/api/*.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 403 Tm
+(Middleware protects /ai-qa and /api/ai-qa by validating a JWT session cookie. Route) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 390 Tm
+(handlers use Prisma to read/write Postgres tables for users, verification tokens, chat) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 377 Tm
+(messages, and document chunks.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 359 Tm
+(AI ingest flow: upload files -> parse PDF or text -> split into chunks -> generate) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 346 Tm
+(embeddings with Google or OpenAI -> store vectors in DocumentChunk. AI chat flow: embed) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 333 Tm
+(query -> score stored chunks with cosine similarity -> build context prompt -> call) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 320 Tm
+(Gemini or GPT model. Chat flow: POST message -> save via Prisma -> notify in-process SSE) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 307 Tm
+(bus -> /api/chat/stream pushes history and live events. Mail flow: UI or cron route ->) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 294 Tm
+(validation and rate limit -> Nodemailer Gmail transport.) Tj
+ET
+BT
+/F2 13 Tf
+1 0 0 1 42 276 Tm
+(How To Run) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 260 Tm
+(- Create a .env with at least PRISMA_DATABASE_URL and a 32+ character JWT_SECRET.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 247 Tm
+(Add GMAIL_USER/GMAIL_APP_PASSWORD and GOOGLE_API_KEY or OPENAI_API_KEY only if) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 234 Tm
+(using mail or AI features.) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 219 Tm
+(- Install dependencies: npm install) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 204 Tm
+(- Initialize Prisma for the local database: npm run prisma:generate and npm run) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 54 191 Tm
+(prisma:migrate) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 176 Tm
+(- Start the app: npm run dev, then open http://localhost:3000) Tj
+ET
+BT
+/F1 10.5 Tf
+1 0 0 1 42 161 Tm
+(Not found in repo: a single canonical env example file or seed script.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 6 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000232 00000 n 
+0000004587 00000 n 
+0000004733 00000 n 
+0000004790 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+4839
+%%EOF

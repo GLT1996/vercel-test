@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 
 type Props = {
@@ -27,14 +27,12 @@ export default function MonacoTextarea({
   id,
   readOnly,
 }: Props) {
-  const mountedRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
   const lastValueRef = useRef(value);
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+    const id = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -72,7 +70,7 @@ export default function MonacoTextarea({
 
   // First render fallback: textarea.
   // In practice this is shown very briefly; Monaco will mount on client.
-  if (!mountedRef.current) {
+  if (!mounted) {
     return (
       <div>
         <label

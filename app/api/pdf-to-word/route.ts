@@ -128,8 +128,25 @@ function sanitizeBaseName(fileName: string) {
   return withoutExt.replace(/[^\w\u4e00-\u9fa5.-]+/g, "_");
 }
 
+/**
+ * 清理 PDF 提取文本中的多余空格
+ * PDF 基于坐标定位文字，可能会产生大量多余空格
+ */
+function cleanExtractedText(text: string): string {
+  return text
+    // 将多个连续空格合并为一个
+    .replace(/[ \t]+/g, " ")
+    // 移除行首行尾空格
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    // 合并多个连续空行为一个
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 function buildParagraphs(text: string) {
-  const normalized = text.replace(/\r\n/g, "\n");
+  const cleaned = cleanExtractedText(text);
+  const normalized = cleaned.replace(/\r\n/g, "\n");
   const blocks = normalized
     .split(/\n{2,}/)
     .map((block) => block.trim())

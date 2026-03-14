@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
-import { bytesToHex, hexToBytes } from 'ethereum-cryptography/utils.js'; // Import hexToBytes
+import { bytesToHex, hexToBytes } from 'ethereum-cryptography/utils.js';
 import { getRandomBytesSync } from 'ethereum-cryptography/random.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { ripemd160 } from 'ethereum-cryptography/ripemd160.js';
-import bs58 from 'bs58';
+import { bech32 } from 'bech32';
 
 export default function BtcWalletGenerator() {
   const [privateKey, setPrivateKey] = useState<string | null>(null);
@@ -19,23 +19,24 @@ export default function BtcWalletGenerator() {
   const deriveKeysAndAddress = (pkBytes: Uint8Array) => {
     try {
       setError(null); // Clear previous errors
-      const newPublicKeyBytes = secp256k1.getPublicKey(pkBytes);
-      
-      // Address generation logic (same as before)
-      const sha256Hash = sha256(newPublicKeyBytes);
+      // Use compressed public key (33 bytes) for SegWit addresses
+      const compressedPublicKey = secp256k1.getPublicKey(pkBytes, true);
+
+      // SegWit P2WPKH address generation (bc1 prefix)
+      // 1. SHA256 → RIPEMD160 to get the witness program (20 bytes)
+      const sha256Hash = sha256(compressedPublicKey);
       const ripemd160Hash = ripemd160(sha256Hash);
-      const versionByte = new Uint8Array([0x00]);
-      const payload = new Uint8Array(versionByte.length + ripemd160Hash.length);
-      payload.set(versionByte);
-      payload.set(ripemd160Hash, 1);
-      const checksum = sha256(sha256(payload)).slice(0, 4);
-      const addressBytes = new Uint8Array(payload.length + checksum.length);
-      addressBytes.set(payload);
-      addressBytes.set(checksum, payload.length);
-      const address = bs58.encode(addressBytes);
+
+      // 2. Convert to 5-bit words for Bech32 encoding
+      const words = [0]; // witness version 0
+      const converted = bech32.toWords(ripemd160Hash);
+      words.push(...converted);
+
+      // 3. Bech32 encode with "bc" HRP (Human Readable Part) for mainnet
+      const address = bech32.encode('bc', words);
 
       setPrivateKey(bytesToHex(pkBytes));
-      setPublicKey(bytesToHex(newPublicKeyBytes));
+      setPublicKey(bytesToHex(compressedPublicKey));
       setWalletAddress(address);
     } catch (e: unknown) {
       setError(`Error deriving keys/address: ${e instanceof Error ? e.message : String(e)}`);

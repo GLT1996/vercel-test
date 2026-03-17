@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 import { bytesToHex, hexToBytes } from 'ethereum-cryptography/utils.js';
-import { getRandomBytesSync } from 'ethereum-cryptography/random.js';
 import { sha256 } from 'ethereum-cryptography/sha256.js';
 import { ripemd160 } from 'ethereum-cryptography/ripemd160.js';
 import { bech32 } from 'bech32';
@@ -52,9 +51,20 @@ export default function BtcWalletGenerator() {
     }
   };
 
-  const generateRandomWallet = () => {
-    const privateKeyBytes = getRandomBytesSync(32);
-    deriveKeysAndAddress(privateKeyBytes);
+  const generateRandomWallet = async () => {
+    // 1. 使用 bip39 生成随机助记词（默认12个单词）
+    const newMnemonic = bip39.generateMnemonic();
+    setMnemonic(newMnemonic);
+
+    // 2. 从助记词派生私钥
+    const seed = await bip39.mnemonicToSeed(newMnemonic);
+    const root = bip32.fromSeed(seed);
+    const child = root.derivePath("m/84'/0'/0'/0/0");
+    const privateKeyBytes = child.privateKey;
+
+    if (privateKeyBytes) {
+      deriveKeysAndAddress(privateKeyBytes);
+    }
     setInputPrivateKey(''); // Clear input field
   };
 
@@ -119,7 +129,7 @@ export default function BtcWalletGenerator() {
         onClick={generateRandomWallet}
         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
       >
-        Generate Random Wallet
+        Generate Random Wallet (with Mnemonic)
       </button>
 
       <div className="space-y-2">
@@ -159,21 +169,24 @@ export default function BtcWalletGenerator() {
       {error && <p className="text-red-500">{error}</p>}
 
       {privateKey && (
-        <div>
-          <h3 className="font-bold">Private Key:</h3>
-          <p className="break-all">{privateKey}</p>
-        </div>
-      )}
-      {publicKey && (
-        <div>
-          <h3 className="font-bold">Public Key:</h3>
-          <p className="break-all">{publicKey}</p>
-        </div>
-      )}
-      {walletAddress && (
-        <div>
-          <h3 className="font-bold">Wallet Address:</h3>
-          <p className="break-all">{walletAddress}</p>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-bold">Mnemonic (Seed Phrase):</h3>
+            <p className="break-all text-orange-600 font-medium">{mnemonic}</p>
+            <p className="text-sm text-gray-500 mt-1">⚠️ Save this phrase securely! It can restore your wallet.</p>
+          </div>
+          <div>
+            <h3 className="font-bold">Private Key:</h3>
+            <p className="break-all">{privateKey}</p>
+          </div>
+          <div>
+            <h3 className="font-bold">Public Key:</h3>
+            <p className="break-all">{publicKey}</p>
+          </div>
+          <div>
+            <h3 className="font-bold">Wallet Address:</h3>
+            <p className="break-all">{walletAddress}</p>
+          </div>
         </div>
       )}
     </div>

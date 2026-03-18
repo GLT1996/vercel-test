@@ -9,6 +9,12 @@ interface ChatMsg {
   createdAt: string;
 }
 
+interface RoomInfo {
+  room: string;
+  messageCount: number;
+  lastMessageAt: string | null;
+}
+
 function formatTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -26,6 +32,13 @@ export default function ChatRoom() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
+
+  // --- admin modal state ---
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminKey, setAdminKey] = useState("");
+  const [adminRooms, setAdminRooms] = useState<RoomInfo[]>([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -137,6 +150,38 @@ export default function ChatRoom() {
     setConnected(false);
   };
 
+  // --- admin fetch rooms ---
+  const handleAdminFetch = async () => {
+    if (!adminKey.trim()) {
+      setAdminError("请输入管理员密钥");
+      return;
+    }
+    setAdminLoading(true);
+    setAdminError("");
+    setAdminRooms([]);
+    try {
+      const res = await fetch(`/api/chat/admin/rooms?key=${encodeURIComponent(adminKey.trim())}`);
+      if (!res.ok) {
+        const data = await res.json();
+        setAdminError(data.error || "验证失败");
+        return;
+      }
+      const data = await res.json();
+      setAdminRooms(data.rooms);
+    } catch {
+      setAdminError("请求失败，请重试");
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const closeAdminModal = () => {
+    setShowAdminModal(false);
+    setAdminKey("");
+    setAdminRooms([]);
+    setAdminError("");
+  };
+
   // ======================== JOIN SCREEN ========================
   if (!joined) {
     return (
@@ -180,7 +225,91 @@ export default function ChatRoom() {
           >
             进入聊天室
           </button>
+
+          {/* 管理员入口 */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setShowAdminModal(true)}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline"
+            >
+              管理员入口
+            </button>
+          </div>
         </div>
+
+        {/* 管理员弹窗 */}
+        {showAdminModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg p-5 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">管理员 - 房间列表</h2>
+                <button
+                  type="button"
+                  onClick={closeAdminModal}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="password"
+                  value={adminKey}
+                  onChange={(e) => setAdminKey(e.target.value)}
+                  placeholder="输入管理员密钥"
+                  className="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAdminFetch();
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAdminFetch}
+                  disabled={adminLoading}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {adminLoading ? "查询中..." : "查看房间"}
+                </button>
+              </div>
+
+              {adminError && (
+                <div className="text-sm text-red-600 mb-3">{adminError}</div>
+              )}
+
+              <div className="flex-1 overflow-y-auto">
+                {adminRooms.length > 0 && (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-2 px-2">房间 ID</th>
+                        <th className="text-center py-2 px-2">消息数</th>
+                        <th className="text-right py-2 px-2">最后消息时间</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminRooms.map((r) => (
+                        <tr key={r.room} className="border-b border-gray-100 dark:border-gray-800">
+                          <td className="py-2 px-2 font-mono text-xs">{r.room}</td>
+                          <td className="py-2 px-2 text-center">{r.messageCount}</td>
+                          <td className="py-2 px-2 text-right text-xs text-gray-500">
+                            {r.lastMessageAt ? new Date(r.lastMessageAt).toLocaleString("zh-CN") : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {adminRooms.length === 0 && !adminLoading && !adminError && (
+                  <div className="text-center text-sm text-gray-400 py-10">
+                    输入密钥后点击"查看房间"
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

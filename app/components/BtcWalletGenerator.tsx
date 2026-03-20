@@ -32,6 +32,19 @@ export default function BtcWalletGenerator() {
   const [derivedAddresses, setDerivedAddresses] = useState<DerivedAddress[]>([]);
   const [rootNode, setRootNode] = useState<BIP32Interface | null>(null);
 
+  // 余额查询状态
+  const [queryAddress, setQueryAddress] = useState<string>('');
+  const [balanceInfo, setBalanceInfo] = useState<{
+    address: string;
+    balance: number;
+    balanceBTC: string;
+    totalReceived: number;
+    totalSent: number;
+    txCount: number;
+  } | null>(null);
+  const [queryLoading, setQueryLoading] = useState<boolean>(false);
+  const [queryError, setQueryError] = useState<string | null>(null);
+
   // Helper function to derive public key and address from a given private key
   const deriveKeysAndAddress = (pkBytes: Uint8Array) => {
     try {
@@ -194,6 +207,59 @@ export default function BtcWalletGenerator() {
     }
   };
 
+  // 查询地址余额
+  const queryAddressBalance = async () => {
+    setQueryError(null);
+    setBalanceInfo(null);
+
+    const address = queryAddress.trim();
+    if (!address) {
+      setQueryError('Please enter a BTC address.');
+      return;
+    }
+
+    // 验证地址格式 (bc1, 1, 3 开头)
+    if (!/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,}$/.test(address)) {
+      setQueryError('Invalid BTC address format.');
+      return;
+    }
+
+    setQueryLoading(true);
+
+    try {
+      const response = await fetch(`https://mempool.space/api/address/${address}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch address info');
+      }
+
+      const data = await response.json();
+
+      // mempool.space 返回的 chain_stats
+      const funded = data.chain_stats.funded_txo_sum || 0;
+      const spent = data.chain_stats.spent_txo_sum || 0;
+      const balance = funded - spent;
+
+      setBalanceInfo({
+        address: address,
+        balance: balance,
+        balanceBTC: (balance / 100000000).toFixed(8),
+        totalReceived: funded,
+        totalSent: spent,
+        txCount: data.chain_stats.tx_count || 0
+      });
+    } catch (e) {
+      setQueryError(`Query failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setQueryLoading(false);
+    }
+  };
+
+  // 格式化 satoshi 为 BTC
+  const formatSatoshi = (satoshi: number): string => {
+    return (satoshi / 100000000).toFixed(8);
+  };
+
   return (
     <div className="space-y-4">
       <button
@@ -235,6 +301,51 @@ export default function BtcWalletGenerator() {
         >
           Generate from Mnemonic
         </button>
+      </div>
+
+      {/* 余额查询区域 */}
+      <div className="space-y-2 border-t pt-4 mt-4">
+        <h3 className="font-bold">Query Address Balance:</h3>
+        <textarea
+          className="w-full p-2 border rounded resize-none"
+          rows={2}
+          value={queryAddress}
+          onChange={(e) => setQueryAddress(e.target.value)}
+          placeholder="Enter BTC address (bc1..., 1..., or 3...)"
+        />
+        <button
+          onClick={queryAddressBalance}
+          disabled={queryLoading}
+          className="px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          {queryLoading ? 'Querying...' : 'Query Balance'}
+        </button>
+
+        {queryError && <p className="text-red-500">{queryError}</p>}
+
+        {balanceInfo && (
+          <div className="bg-gray-100 p-3 rounded border">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="font-semibold">Address:</div>
+              <div className="font-mono break-all">{balanceInfo.address}</div>
+
+              <div className="font-semibold">Balance:</div>
+              <div className="font-mono">
+                {balanceInfo.balanceBTC} BTC
+                <span className="text-gray-500 ml-2">({balanceInfo.balance.toLocaleString()} sat)</span>
+              </div>
+
+              <div className="font-semibold">Total Received:</div>
+              <div className="font-mono">{formatSatoshi(balanceInfo.totalReceived)} BTC</div>
+
+              <div className="font-semibold">Total Sent:</div>
+              <div className="font-mono">{formatSatoshi(balanceInfo.totalSent)} BTC</div>
+
+              <div className="font-semibold">Transactions:</div>
+              <div className="font-mono">{balanceInfo.txCount}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-red-500">{error}</p>}

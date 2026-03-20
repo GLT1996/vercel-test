@@ -226,12 +226,28 @@ export default function BtcWalletGenerator() {
 
     setQueryLoading(true);
 
+    // 带超时的 fetch 函数
+    const fetchWithTimeout = async (url: string, timeout: number = 10000) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
+    };
+
     // 多个 API 源，按优先级尝试
+    const TIMEOUT = 10000; // 10秒超时
     const apis = [
       {
         name: 'mempool.space',
         fetch: async () => {
-          const res = await fetch(`https://mempool.space/api/address/${address}`);
+          const res = await fetchWithTimeout(`https://mempool.space/api/address/${address}`, TIMEOUT);
           const data = await res.json();
           const funded = data.chain_stats.funded_txo_sum || 0;
           const spent = data.chain_stats.spent_txo_sum || 0;
@@ -246,7 +262,7 @@ export default function BtcWalletGenerator() {
       {
         name: 'blockstream.info',
         fetch: async () => {
-          const res = await fetch(`https://blockstream.info/api/address/${address}`);
+          const res = await fetchWithTimeout(`https://blockstream.info/api/address/${address}`, TIMEOUT);
           const data = await res.json();
           const funded = data.chain_stats.funded_txo_sum || 0;
           const spent = data.chain_stats.spent_txo_sum || 0;
@@ -261,7 +277,7 @@ export default function BtcWalletGenerator() {
       {
         name: 'blockcypher',
         fetch: async () => {
-          const res = await fetch(`https://api.blockcypher.com/v1/btc/main/addrs/${address}/balance`);
+          const res = await fetchWithTimeout(`https://api.blockcypher.com/v1/btc/main/addrs/${address}/balance`, TIMEOUT);
           const data = await res.json();
           return {
             balance: data.balance || 0,
@@ -289,7 +305,10 @@ export default function BtcWalletGenerator() {
         setQueryLoading(false);
         return; // 成功则返回
       } catch (e) {
-        lastError = `${api.name}: ${e instanceof Error ? e.message : String(e)}`;
+        const errorMsg = e instanceof Error && e.name === 'AbortError'
+          ? 'timeout (10s)'
+          : (e instanceof Error ? e.message : String(e));
+        lastError = `${api.name}: ${errorMsg}`;
         console.warn(`API ${api.name} failed:`, e);
       }
     }

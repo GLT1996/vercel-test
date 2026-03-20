@@ -226,33 +226,77 @@ export default function BtcWalletGenerator() {
 
     setQueryLoading(true);
 
-    try {
-      const response = await fetch(`https://mempool.space/api/address/${address}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch address info');
+    // 多个 API 源，按优先级尝试
+    const apis = [
+      {
+        name: 'mempool.space',
+        fetch: async () => {
+          const res = await fetch(`https://mempool.space/api/address/${address}`);
+          const data = await res.json();
+          const funded = data.chain_stats.funded_txo_sum || 0;
+          const spent = data.chain_stats.spent_txo_sum || 0;
+          return {
+            balance: funded - spent,
+            totalReceived: funded,
+            totalSent: spent,
+            txCount: data.chain_stats.tx_count || 0
+          };
+        }
+      },
+      {
+        name: 'blockstream.info',
+        fetch: async () => {
+          const res = await fetch(`https://blockstream.info/api/address/${address}`);
+          const data = await res.json();
+          const funded = data.chain_stats.funded_txo_sum || 0;
+          const spent = data.chain_stats.spent_txo_sum || 0;
+          return {
+            balance: funded - spent,
+            totalReceived: funded,
+            totalSent: spent,
+            txCount: data.chain_stats.tx_count || 0
+          };
+        }
+      },
+      {
+        name: 'blockcypher',
+        fetch: async () => {
+          const res = await fetch(`https://api.blockcypher.com/v1/btc/main/addrs/${address}/balance`);
+          const data = await res.json();
+          return {
+            balance: data.balance || 0,
+            totalReceived: data.total_received || 0,
+            totalSent: data.total_sent || 0,
+            txCount: data.n_tx || 0
+          };
+        }
       }
+    ];
 
-      const data = await response.json();
+    let lastError: string | null = null;
 
-      // mempool.space 返回的 chain_stats
-      const funded = data.chain_stats.funded_txo_sum || 0;
-      const spent = data.chain_stats.spent_txo_sum || 0;
-      const balance = funded - spent;
-
-      setBalanceInfo({
-        address: address,
-        balance: balance,
-        balanceBTC: (balance / 100000000).toFixed(8),
-        totalReceived: funded,
-        totalSent: spent,
-        txCount: data.chain_stats.tx_count || 0
-      });
-    } catch (e) {
-      setQueryError(`Query failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setQueryLoading(false);
+    for (const api of apis) {
+      try {
+        const result = await api.fetch();
+        setBalanceInfo({
+          address: address,
+          balance: result.balance,
+          balanceBTC: (result.balance / 100000000).toFixed(8),
+          totalReceived: result.totalReceived,
+          totalSent: result.totalSent,
+          txCount: result.txCount
+        });
+        setQueryLoading(false);
+        return; // 成功则返回
+      } catch (e) {
+        lastError = `${api.name}: ${e instanceof Error ? e.message : String(e)}`;
+        console.warn(`API ${api.name} failed:`, e);
+      }
     }
+
+    // 所有 API 都失败
+    setQueryError(`All APIs failed. Last error: ${lastError}`);
+    setQueryLoading(false);
   };
 
   // 格式化 satoshi 为 BTC

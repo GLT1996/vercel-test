@@ -337,6 +337,7 @@ export default function SolarSystemSimulator() {
   const animationRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const moonPhaseContainerRef = useRef<HTMLDivElement>(null);
+  const simDateRef = useRef<Date>(simDate);
 
   // 初始化设置为当前时间
   useEffect(() => {
@@ -345,6 +346,11 @@ export default function SolarSystemSimulator() {
     setInputTime(formatTime(now));
     setSimDate(now);
   }, []);
+
+  // 同步 simDateRef
+  useEffect(() => {
+    simDateRef.current = simDate;
+  }, [simDate]);
 
   // 设置 Canvas 尺寸
   useEffect(() => {
@@ -402,7 +408,8 @@ export default function SolarSystemSimulator() {
       lastTime = currentTime;
 
       // 每秒流逝 speed 天
-      const newTime = new Date(simDate.getTime() + deltaTime * speed * 24 * 60 * 60 * 1000);
+      const newTime = new Date(simDateRef.current.getTime() + deltaTime * speed * 24 * 60 * 60 * 1000);
+      simDateRef.current = newTime;
       setSimDate(newTime);
       renderCanvas(canvas, newTime);
 

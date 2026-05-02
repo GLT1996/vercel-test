@@ -362,7 +362,10 @@ export default function SolarSystemSimulator() {
         moonPhaseCanvasRef.current.width = size;
         moonPhaseCanvasRef.current.height = size;
         const positions = calculatePositions(simDate);
-        drawMoonPhase(moonPhaseCanvasRef.current.getContext("2d"), positions.moon.phaseAngle, size / 2, size / 2, size * 0.35);
+        const ctx = moonPhaseCanvasRef.current.getContext("2d");
+        if (ctx) {
+          drawMoonPhase(ctx, positions.moon.phaseAngle, size / 2, size / 2, size * 0.35);
+        }
       }
     };
 
@@ -389,7 +392,8 @@ export default function SolarSystemSimulator() {
 
   // 动画循环
   useEffect(() => {
-    if (!isPlaying || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    if (!isPlaying || !canvas) return;
 
     let lastTime = performance.now();
 
@@ -400,7 +404,7 @@ export default function SolarSystemSimulator() {
       // 每秒流逝 speed 天
       const newTime = new Date(simDate.getTime() + deltaTime * speed * 24 * 60 * 60 * 1000);
       setSimDate(newTime);
-      renderCanvas(canvasRef.current, newTime);
+      renderCanvas(canvas, newTime);
 
       // 同时渲染月相
       if (moonPhaseCanvasRef.current) {
@@ -417,7 +421,7 @@ export default function SolarSystemSimulator() {
 
     animationRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationRef.current);
-  }, [isPlaying, speed, simDate]);
+  }, [isPlaying, speed]);
 
   // 设置为当前时间
   const setToNow = useCallback(() => {

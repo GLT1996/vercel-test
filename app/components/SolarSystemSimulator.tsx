@@ -169,10 +169,10 @@ function drawMoonPhase(ctx: CanvasRenderingContext2D, phaseAngle: number, x: num
     ctx.beginPath();
     if (phase < Math.PI) {
       // 下弦月：左半圆
-      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, true);
+      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, false);
     } else {
       // 上弦月：右半圆
-      ctx.arc(x, y, r, 3 * Math.PI / 2, Math.PI / 2, true);
+      ctx.arc(x, y, r, 3 * Math.PI / 2, Math.PI / 2, false);
     }
     ctx.fill();
     return;
@@ -189,18 +189,18 @@ function drawMoonPhase(ctx: CanvasRenderingContext2D, phaseAngle: number, x: num
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.fill();
 
-      // 暗面：arc(右半圆,顺时针) + ellipse(右凸,逆时针)，方向相反，evenodd交集
+      // 暗面：arc(右半圆,逆时针) + ellipse(右凸,顺时针)，方向相反，evenodd交集
       ctx.fillStyle = "#333333";
       ctx.beginPath();
-      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, false); // 终点=3π/2
-      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, true); // 起点=3π/2，右凸
+      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, true); // 终点=3π/2，右半圆
+      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, false); // 起点=3π/2，右凸椭圆
       ctx.fill("evenodd");
     } else {
       // 残月：亮面宽度=r-rx（左侧边缘）
-      // arc(左半圆,逆时针) + ellipse(左凸,顺时针)，方向相反，evenodd交集
+      // arc(左半圆,顺时针) + ellipse(左凸,逆时针)，方向相反，evenodd交集
       ctx.beginPath();
-      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, true); // 终点=3π/2
-      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, false); // 起点=3π/2，左凸
+      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, false); // 终点=3π/2，左半圆
+      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, true); // 起点=3π/2，左凸椭圆
       ctx.fill("evenodd");
     }
   } else {
@@ -212,19 +212,19 @@ function drawMoonPhase(ctx: CanvasRenderingContext2D, phaseAngle: number, x: num
       ctx.arc(x, y, r, 0, 2 * Math.PI);
       ctx.fill();
 
-      // 暗面：ellipse(左凸,顺时针) + arc(左半圆,逆时针)，方向相反，evenodd交集
+      // 暗面：ellipse(左凸,逆时针) + arc(左半圆,顺时针)，方向相反，evenodd交集
       // 注意：ellipse 先画，终点连接 arc 起点
       ctx.fillStyle = "#333333";
       ctx.beginPath();
-      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, false); // 终点=π/2，左凸
-      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, true); // 起点=π/2，左半圆
+      ctx.ellipse(x, y, rx, r, 0, 3 * Math.PI / 2, Math.PI / 2, true); // 终点=π/2，左凸椭圆
+      ctx.arc(x, y, r, Math.PI / 2, 3 * Math.PI / 2, false); // 起点=π/2，左半圆
       ctx.fill("evenodd");
     } else {
       // 峨眉月：亮面宽度=r-rx（右侧边缘）
-      // arc(右半圆,逆时针) + ellipse(左凸,顺时针)，方向相反，evenodd交集
+      // arc(右半圆,顺时针) + ellipse(右凸,逆时针)，方向相反，evenodd交集
       ctx.beginPath();
-      ctx.arc(x, y, r, 3 * Math.PI / 2, Math.PI / 2, true); // 终点=π/2
-      ctx.ellipse(x, y, rx, r, 0, Math.PI / 2, 3 * Math.PI / 2, false); // 起点=π/2，左凸
+      ctx.arc(x, y, r, 3 * Math.PI / 2, Math.PI / 2, false); // 终点=π/2，右半圆
+      ctx.ellipse(x, y, rx, r, 0, Math.PI / 2, 3 * Math.PI / 2, true); // 起点=π/2，右凸椭圆
       ctx.fill("evenodd");
     }
   }
@@ -630,7 +630,7 @@ export default function SolarSystemSimulator() {
       {/* 说明 */}
       <div className="text-center text-xs text-neutral-500 dark:text-neutral-400 space-y-1">
         <p>地球公转周期：365.25 天 | 月球朔望月周期：29.53 天</p>
-        <p>参考新月：2000-01-06（相位0=新月，相位180°=满月）</p>
+        <p>参考满月：2000-01-21（相位0°=满月，相位180°=新月）</p>
       </div>
     </div>
   );

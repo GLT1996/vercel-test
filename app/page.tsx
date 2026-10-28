@@ -97,6 +97,12 @@ export default async function Home() {
           >
             太阳系运转模拟
           </Link>
+          <Link
+              href="/erangel-distance"
+              className="flex h-12 w-full max-w-xs items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:max-w-xs"
+          >
+            PUBG 艾伦格地图测距
+          </Link>
         </div>
       </main>
     </div>
